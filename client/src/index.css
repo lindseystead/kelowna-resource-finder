@@ -1,0 +1,212 @@
+/* Fonts are loaded via <link> in index.html for better performance */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ensure text doesn't overflow on any screen size */
+@layer utilities {
+  .text-wrap-balance {
+    text-wrap: balance;
+  }
+  
+  .overflow-wrap-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  
+  .hyphens-auto {
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
+  }
+}
+
+:root {
+  --font-body: 'DM Sans', sans-serif;
+  --font-display: 'Outfit', sans-serif;
+
+  /* Soft, community-focused palette: Blues, Teals, Greens */
+  --background: 210 20% 98%;
+  --foreground: 222 47% 11%;
+
+  --primary: 199 89% 48%;       /* Kelowna Sky Blue */
+  --primary-foreground: 210 40% 98%;
+
+  --secondary: 173 80% 40%;     /* Teal Green */
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+
+  --accent: 38 92% 50%;         /* Warm Amber for highlights */
+  --accent-foreground: 222 47% 11%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 199 89% 48%;
+
+  --radius: 0.75rem;
+}
+
+.dark {
+  --background: 222 47% 11%;
+  --foreground: 210 40% 98%;
+
+  --primary: 199 89% 58%;
+  --primary-foreground: 222 47% 11%;
+
+  --secondary: 173 80% 50%;
+  --secondary-foreground: 222 47% 11%;
+
+  --muted: 217 33% 17%;
+  --muted-foreground: 215 20% 65%;
+
+  --accent: 38 92% 50%;
+  --accent-foreground: 222 47% 11%;
+
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 217 33% 17%;
+  --input: 217 33% 17%;
+  --ring: 199 89% 58%;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    @apply font-bold tracking-tight text-foreground;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12;
+  }
+}
+
+/* Print Styles */
+@media print {
+  /* Hide navigation, chat, and non-essential elements */
+  nav,
+  .fixed,
+  button:not(.print-keep),
+  [data-testid="button-toggle-chat"],
+  [data-testid="chat-widget-panel"],
+  footer,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Optimize page layout for printing */
+  body {
+    background: white;
+    color: black;
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+
+  /* Resource cards print nicely */
+  .bg-white {
+    background: white !important;
+    border: 1px solid #ddd !important;
+    page-break-inside: avoid;
+    margin-bottom: 1rem;
+  }
+
+  /* Favorites page print layout */
+  .favorites-print-header {
+    display: none;
+  }
+
+  .favorites-print-header h1 {
+    font-size: 18pt;
+    margin-bottom: 0.5rem;
+  }
+
+  .favorites-print-header p {
+    font-size: 11pt;
+    color: #666;
+  }
+
+  /* Print-friendly resource cards */
+  [data-print-resource] {
+    page-break-inside: avoid;
+    margin-bottom: 1.5rem;
+  }
+
+  [data-print-resource] .print-only {
+    display: none;
+  }
+
+  [data-print-resource] .print-only h3 {
+    font-size: 14pt;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: #000;
+  }
+
+  [data-print-resource] .print-only p {
+    font-size: 10pt;
+    margin-bottom: 0.5rem;
+    color: #333;
+  }
+
+  [data-print-resource] .print-contact-info {
+    font-size: 9pt;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #eee;
+  }
+
+  [data-print-resource] .print-contact-info strong {
+    font-weight: bold;
+  }
+
+  /* Headers and important info */
+  h1, h2, h3 {
+    color: black !important;
+    page-break-after: avoid;
+  }
+
+  /* Links */
+  a {
+    color: black !important;
+    text-decoration: underline;
+  }
+
+  /* Remove shadows and gradients for print */
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl,
+  .bg-gradient-to-r {
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  /* Show print-only elements */
+  .favorites-print-header,
+  .print-only {
+    display: block !important;
+  }
+
+  /* Hide screen-only elements when printing */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Ensure good contrast */
+  .text-gray-600,
+  .text-gray-500 {
+    color: #333 !important;
+  }
+}

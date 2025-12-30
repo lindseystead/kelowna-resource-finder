@@ -1,0 +1,44 @@
+{
+  "name": "Help Kelowna - Community Support Directory",
+  "short_name": "Help Kelowna",
+  "description": "Find free community support services in Kelowna and West Kelowna",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5e9",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["social", "utilities", "health"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Crisis Help",
+      "short_name": "Crisis",
+      "description": "Get immediate crisis support",
+      "url": "/?crisis=true",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Find Food",
+      "short_name": "Food",
+      "description": "Find food support and meal services",
+      "url": "/category/food-banks",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Find Shelter",
+      "short_name": "Shelter",
+      "description": "Find emergency shelters",
+      "url": "/category/shelters",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}
+
