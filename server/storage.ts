@@ -75,13 +75,97 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Build the query - handle 0, 1, or multiple conditions
+    let results: Resource[];
     if (conditions.length === 0) {
-      return await db.select().from(resources);
+      results = await db.select().from(resources);
     } else if (conditions.length === 1) {
-      return await db.select().from(resources).where(conditions[0]);
+      results = await db.select().from(resources).where(conditions[0]);
     } else {
-      return await db.select().from(resources).where(and(...conditions));
+      results = await db.select().from(resources).where(and(...conditions));
     }
+
+    // Post-process search results to filter out inappropriate matches
+    if (options?.search) {
+      const searchLower = options.search.toLowerCase().trim();
+      const searchWords = searchLower.split(/\s+/);
+      
+      // Keywords that indicate crisis/mental health related searches
+      const crisisKeywords = [
+        'suicide', 'crisis', 'mental health', 'depression', 'anxiety', 
+        'self-harm', 'emergency', 'hotline', 'helpline', '988', 'crisis line',
+        'mental wellness', 'psychological', 'therapy', 'counseling', 'counselling',
+        'trauma', 'ptsd', 'bipolar', 'schizophrenia', 'psychiatric'
+      ];
+      
+      // Check if search is crisis-related
+      const isCrisisSearch = crisisKeywords.some(keyword => 
+        searchLower.includes(keyword) || keyword.includes(searchLower)
+      );
+      
+      // Keywords that indicate crisis resources (to exclude from non-crisis searches)
+      const crisisResourceIndicators = [
+        'suicide', 'crisis', '988', 'hotline', 'helpline', 'lifeline',
+        'crisis intervention', 'crisis support', 'suicide prevention',
+        'crisis line', 'talk suicide', '1-800-suicide'
+      ];
+      
+      // Filter and rank results
+      results = results
+        .filter(resource => {
+          // If search is NOT crisis-related, exclude crisis resources
+          if (!isCrisisSearch) {
+            const nameLower = (resource.name || '').toLowerCase();
+            const descLower = (resource.description || '').toLowerCase();
+            const isCrisisResource = crisisResourceIndicators.some(indicator =>
+              nameLower.includes(indicator) || descLower.includes(indicator)
+            );
+            
+            // Exclude crisis resources from non-crisis searches
+            if (isCrisisResource) {
+              return false;
+            }
+          }
+          
+          // Ensure the resource actually matches the search
+          const nameLower = (resource.name || '').toLowerCase();
+          const descLower = (resource.description || '').toLowerCase();
+          
+          // Must match at least one search word in name or description
+          return searchWords.some(word => 
+            nameLower.includes(word) || descLower.includes(word)
+          );
+        })
+        .sort((a, b) => {
+          // Prioritize name matches over description matches
+          const aNameLower = (a.name || '').toLowerCase();
+          const bNameLower = (b.name || '').toLowerCase();
+          const aDescLower = (a.description || '').toLowerCase();
+          const bDescLower = (b.description || '').toLowerCase();
+          
+          const aNameMatch = searchWords.some(word => aNameLower.includes(word));
+          const bNameMatch = searchWords.some(word => bNameLower.includes(word));
+          
+          // Name matches first
+          if (aNameMatch && !bNameMatch) return -1;
+          if (!aNameMatch && bNameMatch) return 1;
+          
+          // Then prioritize exact name matches
+          if (aNameLower.includes(searchLower) && !bNameLower.includes(searchLower)) return -1;
+          if (!aNameLower.includes(searchLower) && bNameLower.includes(searchLower)) return 1;
+          
+          // Then prioritize description matches
+          const aDescMatch = searchWords.some(word => aDescLower.includes(word));
+          const bDescMatch = searchWords.some(word => bDescLower.includes(word));
+          
+          if (aDescMatch && !bDescMatch) return -1;
+          if (!aDescMatch && bDescMatch) return 1;
+          
+          // Finally, alphabetical
+          return aNameLower.localeCompare(bNameLower);
+        });
+    }
+    
+    return results;
   }
 
   async getResource(id: number): Promise<Resource | undefined> {
