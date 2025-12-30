@@ -12,6 +12,7 @@ import { useState, useRef, useEffect } from "react";
 import { MessageCircle, X, Send, Loader2, Bot, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { apiUrl } from "@/lib/api";
 
 interface Message {
   id: number;
@@ -83,7 +84,7 @@ export function AIChatWidget() {
       headers["x-csrf-token"] = csrfToken;
     }
     
-    const res = await fetch("/api/conversations", {
+    const res = await fetch(apiUrl("/api/conversations"), {
       method: "POST",
       headers,
       body: JSON.stringify({ title: "Support Chat" }),
@@ -124,7 +125,7 @@ export function AIChatWidget() {
         headers["x-csrf-token"] = csrfToken;
       }
       
-      const response = await fetch(`/api/conversations/${convId}/messages`, {
+      const response = await fetch(apiUrl(`/api/conversations/${convId}/messages`), {
         method: "POST",
         headers,
         body: JSON.stringify({ content: userMessage }),
@@ -235,7 +236,7 @@ export function AIChatWidget() {
       
       // Try to get generic resources from database as fallback
       try {
-        const resourcesResponse = await fetch("/api/resources");
+        const resourcesResponse = await fetch(apiUrl("/api/resources"));
         if (resourcesResponse.ok && isMountedRef.current) {
           const resources = await resourcesResponse.json();
           const resourceList = resources.slice(0, 3).map((r: any) => 

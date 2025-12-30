@@ -9,6 +9,7 @@
  */
 
 import { queryClient } from "./queryClient";
+import { apiUrl } from "./api";
 
 interface AppConfig {
   supportEmail: string;
@@ -28,7 +29,7 @@ export async function getAppConfig(): Promise<AppConfig> {
   }
 
   try {
-    const response = await fetch("/api/config");
+    const response = await fetch(apiUrl("/api/config"));
     if (!response.ok) {
       throw new Error(`Failed to fetch config: ${response.statusText}`);
     }
@@ -70,7 +71,7 @@ export function useAppConfig() {
   return queryClient.fetchQuery({
     queryKey: ["/api/config"],
     queryFn: async () => {
-      const response = await fetch("/api/config");
+      const response = await fetch(apiUrl("/api/config"));
       if (!response.ok) {
         throw new Error(`Failed to fetch config: ${response.statusText}`);
       }

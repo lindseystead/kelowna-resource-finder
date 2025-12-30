@@ -8,6 +8,7 @@
  */
 
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { apiUrl } from "./api";
 
 function getCsrfToken(): string | null {
   const cookies = document.cookie.split(';');
@@ -42,7 +43,10 @@ export async function apiRequest(
     headers["x-csrf-token"] = csrfToken;
   }
   
-  const res = await fetch(url, {
+  // Use apiUrl helper to get full URL (handles Railway backend in production)
+  const fullUrl = apiUrl(url);
+  
+  const res = await fetch(fullUrl, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
@@ -59,7 +63,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const path = queryKey.join("/") as string;
+    const fullUrl = apiUrl(path);
+    
+    const res = await fetch(fullUrl, {
       credentials: "include",
     });
 

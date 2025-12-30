@@ -16,6 +16,7 @@ import { Loader2, MapPin, Phone, Globe, AlertCircle, ArrowLeft, CheckCircle, Clo
 import { Link, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@shared/routes";
+import { apiUrl } from "@/lib/api";
 import { motion } from "framer-motion";
 import { isOpenNow } from "@/lib/hours";
 import { useCurrentTime } from "@/hooks/use-current-time";
@@ -43,7 +44,7 @@ export default function ResourceDetail() {
   const { data: categories } = useQuery({
     queryKey: [api.categories.list.path],
     queryFn: async () => {
-      const res = await fetch(api.categories.list.path);
+      const res = await fetch(apiUrl(api.categories.list.path));
       return api.categories.list.responses[200].parse(await res.json());
     },
     enabled: !!resource
