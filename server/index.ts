@@ -19,6 +19,8 @@ import { sessionMiddleware } from "./auth/session";
 import { registerAuthRoutes } from "./auth/routes";
 import { csrfToken, validateCsrf } from "./auth/csrf";
 import { REQUEST_LIMITS } from "./constants";
+import fs from "fs";
+import path from "path";
 
 const app = express();
 const httpServer = createServer(app);
@@ -105,7 +107,18 @@ app.use((req, res, next) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
-    serveStatic(app);
+    /**
+     * Split-deployment support:
+     * - In a monolith deploy, `dist/public` exists and we serve the SPA from the backend.
+     * - In split deploy (Vercel frontend + Railway backend), `dist/public` is not built on Railway.
+     *   In that case, run API-only mode instead of crashing on startup.
+     */
+    const distPublicPath = path.resolve(import.meta.dirname, "..", "dist", "public");
+    if (fs.existsSync(distPublicPath)) {
+      serveStatic(app);
+    } else {
+      log(`Static build not found at ${distPublicPath}. Running API-only mode (split deployment).`);
+    }
   } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
