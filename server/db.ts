@@ -11,6 +11,12 @@
 import { config } from "dotenv";
 config();
 
+// Prefer IPv4 results when both AAAA and A records exist.
+// Some hosting environments (including Railway) may not have IPv6 egress,
+// which can cause `connect ENETUNREACH <ipv6>` against Supabase.
+import dns from "node:dns";
+dns.setDefaultResultOrder("ipv4first");
+
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "@shared/schema";
