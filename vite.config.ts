@@ -21,7 +21,10 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname, "client"),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist/public"),
+    // Vercel default expects `dist/` at the repo root for Vite projects.
+    // Railway backend build also outputs `dist/index.cjs`, so `dist/` becomes
+    // the single production artifact directory.
+    outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
   },
   server: {

@@ -113,11 +113,14 @@ app.use((req, res, next) => {
      * - In split deploy (Vercel frontend + Railway backend), `dist/public` is not built on Railway.
      *   In that case, run API-only mode instead of crashing on startup.
      */
-    const distPublicPath = path.resolve(import.meta.dirname, "..", "dist", "public");
-    if (fs.existsSync(distPublicPath)) {
+    const distPath = path.resolve(process.cwd(), "dist");
+    const legacyDistPublicPath = path.resolve(process.cwd(), "dist", "public");
+    const hasFrontendBuild = fs.existsSync(path.resolve(distPath, "index.html")) || fs.existsSync(path.resolve(legacyDistPublicPath, "index.html"));
+
+    if (hasFrontendBuild) {
       serveStatic(app);
     } else {
-      log(`Static build not found at ${distPublicPath}. Running API-only mode (split deployment).`);
+      log("Static build not found. Running API-only mode (split deployment).");
     }
   } else {
     const { setupVite } = await import("./vite");
