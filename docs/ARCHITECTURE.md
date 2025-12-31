@@ -103,6 +103,18 @@ See `shared/schema.ts` for complete schema. Key tables:
 - `conversations` - AI chat conversations
 - `messages` - Chat messages
 
+### Chatbot State Management
+
+The chatbot uses a state-first approach with conversation state tracking:
+
+- **State Inference**: Analyzes message history to infer intent, urgency, permission status, and location
+- **Action Determination**: Decides whether to ask permission, ask location, fetch resources, or present options
+- **Resource Prioritization**: For urgent requests, prioritizes immediate options (24/7 access, hot meals) over appointment-based services
+- **Age Filtering**: Filters out youth-only resources for adult users based on conversation context
+- **Crisis Handling**: Special permission-first flow for suicidal/self-harm situations
+
+See `server/chat/state.ts` for the state machine implementation.
+
 ## Future Improvements
 
 - Pagination for list endpoints

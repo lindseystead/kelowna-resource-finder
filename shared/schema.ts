@@ -7,7 +7,7 @@
  * Defines database tables, types, and validation schemas using Drizzle ORM and Zod.
  */
 
-import { pgTable, text, serial, boolean, integer, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, boolean, integer, timestamp, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
@@ -51,7 +51,7 @@ export const categories = pgTable("categories", {
  */
 export const resources = pgTable("resources", {
   id: serial("id").primaryKey(),
-  categoryId: integer("category_id").references(() => categories.id).notNull(),
+  categoryId: integer("category_id").references(() => categories.id), // DEPRECATED: Kept for backward compatibility during migration
   name: text("name").notNull(), // Organization/service name
   description: text("description").notNull(), // Service description and eligibility info
   address: text("address").notNull(), // Full address or service location
@@ -65,6 +65,26 @@ export const resources = pgTable("resources", {
   lastVerified: timestamp("last_verified"), // Timestamp of last verification check (nullable)
   createdAt: timestamp("created_at").defaultNow(), // When resource was first added to database
 });
+
+/**
+ * Resource-Category junction table - Many-to-many relationship
+ * 
+ * Allows resources to belong to multiple categories (e.g., a youth shelter
+ * can be in both "shelters" and "youth" categories).
+ * 
+ * Design Decision: Many-to-many relationship provides better UX and accuracy.
+ * Resources often span multiple categories (youth + shelters, crisis + youth, etc.).
+ * This follows industry-standard database normalization practices.
+ * 
+ * Foreign keys use CASCADE delete: if a resource or category is deleted,
+ * all associated junction table entries are automatically removed.
+ */
+export const resourceCategories = pgTable("resource_categories", {
+  resourceId: integer("resource_id").references(() => resources.id, { onDelete: "cascade" }).notNull(),
+  categoryId: integer("category_id").references(() => categories.id, { onDelete: "cascade" }).notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.resourceId, table.categoryId] }),
+}));
 
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
@@ -83,6 +103,7 @@ export const messages = pgTable("messages", {
 // === BASE SCHEMAS ===
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true });
 export const insertResourceSchema = createInsertSchema(resources).omit({ id: true, createdAt: true });
+export const insertResourceCategorySchema = createInsertSchema(resourceCategories);
 export const insertConversationSchema = createInsertSchema(conversations).omit({ id: true, createdAt: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true });
 
@@ -91,6 +112,8 @@ export type Category = typeof categories.$inferSelect;
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Resource = typeof resources.$inferSelect;
 export type InsertResource = z.infer<typeof insertResourceSchema>;
+export type ResourceCategory = typeof resourceCategories.$inferSelect;
+export type InsertResourceCategory = z.infer<typeof insertResourceCategorySchema>;
 export type Conversation = typeof conversations.$inferSelect;
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Message = typeof messages.$inferSelect;

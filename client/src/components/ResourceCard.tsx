@@ -186,15 +186,20 @@ export function ResourceCard({ resource, index = 0, userLocation }: ResourceCard
             </motion.div>
           </AnimatePresence>
           
-          {/* Read More/Less Button - Only show if description is long enough to be truncated */}
-          {resource.description.length > 120 && (
+          {/* Read More/Less Button - Show if description might be truncated */}
+          {(() => {
+            // Check if description is likely to be truncated
+            // line-clamp-3 on mobile = ~150 chars, line-clamp-2 on desktop = ~100 chars
+            const likelyTruncated = resource.description.length > 100;
+            return likelyTruncated;
+          })() && (
             <motion.button
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 setIsDescriptionExpanded(!isDescriptionExpanded);
               }}
-              className="mt-2.5 sm:mt-2 flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-primary hover:text-primary/80 active:text-primary/70 transition-all touch-manipulation group px-2 py-1 -ml-2 rounded-lg hover:bg-primary/5 active:bg-primary/10"
+              className="mt-2.5 sm:mt-2 flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-primary hover:text-primary/80 active:text-primary/70 transition-all touch-manipulation group px-2 py-1 -ml-2 rounded-lg hover:bg-primary/5 active:bg-primary/10 min-h-[44px]"
               aria-label={isDescriptionExpanded ? "Show less description" : "Show more description"}
               aria-expanded={isDescriptionExpanded}
               whileHover={{ scale: 1.02 }}
@@ -206,7 +211,11 @@ export function ResourceCard({ resource, index = 0, userLocation }: ResourceCard
                 transition={{ duration: 0.3, ease: "easeInOut" }}
                 className="flex items-center"
               >
-                <ChevronDown className="w-4 h-4 sm:w-4 sm:h-4 transition-transform group-hover:translate-y-0.5" aria-hidden="true" />
+                {isDescriptionExpanded ? (
+                  <ChevronUp className="w-4 h-4 sm:w-4 sm:h-4 transition-transform" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 sm:w-4 sm:h-4 transition-transform group-hover:translate-y-0.5" aria-hidden="true" />
+                )}
               </motion.div>
             </motion.button>
           )}

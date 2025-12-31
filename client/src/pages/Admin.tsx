@@ -111,9 +111,16 @@ export default function Admin() {
                         <Input
                           type="text"
                           value={editingHours[resource.id]}
-                          onChange={(e) => setEditingHours(prev => ({ ...prev, [resource.id]: e.target.value }))}
+                          onChange={(e) => {
+                            // Limit hours input to reasonable length (200 chars)
+                            const value = e.target.value;
+                            if (value.length <= 200) {
+                              setEditingHours(prev => ({ ...prev, [resource.id]: value }));
+                            }
+                          }}
                           placeholder="e.g., Mon-Fri 9am-5pm"
                           className="text-sm"
+                          maxLength={200}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') handleSaveHours(resource.id);
                             if (e.key === 'Escape') setEditingHours(prev => {

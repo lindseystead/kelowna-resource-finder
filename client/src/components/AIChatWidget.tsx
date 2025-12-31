@@ -53,6 +53,17 @@ export function AIChatWidget() {
       inputRef.current.focus();
     }
   }, [isOpen]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      const maxHeight = 120; // Max ~5 lines
+      const newHeight = Math.min(inputRef.current.scrollHeight, maxHeight);
+      inputRef.current.style.height = `${newHeight}px`;
+      inputRef.current.style.overflowY = inputRef.current.scrollHeight > maxHeight ? 'auto' : 'hidden';
+    }
+  }, [input]);
   
   useEffect(() => {
     if (isOpen && !hasShownGreeting && messages.length === 0 && conversationId === null) {
@@ -291,10 +302,12 @@ export function AIChatWidget() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-16 sm:bottom-24 right-2 sm:right-4 w-[calc(100vw-1rem)] sm:w-[380px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-50 flex flex-col"
+            className="fixed bottom-16 sm:bottom-24 right-2 sm:right-4 w-[calc(100vw-1rem)] sm:w-[380px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-[60] flex flex-col"
             style={{ 
-              height: "calc(100vh - 4.5rem - env(safe-area-inset-bottom, 0px))",
-              maxHeight: "calc(100vh - 4.5rem - env(safe-area-inset-bottom, 0px))",
+              top: 'max(4rem, calc(4rem + env(safe-area-inset-top, 0)))',
+              height: "calc(100vh - 4rem - 4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+              maxHeight: "calc(100vh - 4rem - 4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+              maxWidth: "calc(100vw - 1rem)",
               marginBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0))',
               marginRight: 'max(0.5rem, env(safe-area-inset-right, 0))',
             }}
@@ -401,13 +414,20 @@ export function AIChatWidget() {
                 <textarea
                   ref={inputRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    // Limit input length to prevent abuse (2000 chars is reasonable for chat)
+                    const value = e.target.value;
+                    if (value.length <= 2000) {
+                      setInput(value);
+                    }
+                  }}
                   onKeyDown={handleKeyDown}
                   placeholder="Type your message..."
-                  className="flex-1 resize-none border border-slate-200 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 touch-manipulation min-h-[44px]"
+                  className="flex-1 resize-none border border-slate-200 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 touch-manipulation min-h-[44px] max-h-[120px] overflow-y-auto break-words overflow-wrap-anywhere"
                   rows={1}
                   disabled={isLoading}
                   data-testid="input-chat-message"
+                  maxLength={2000}
                 />
                 <Button
                   onClick={sendMessage}
@@ -436,7 +456,7 @@ export function AIChatWidget() {
 
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center z-50 transition-colors touch-manipulation min-w-[56px] min-h-[56px] sm:min-w-[64px] sm:min-h-[64px] ${
+        className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center z-[60] transition-colors touch-manipulation min-w-[56px] min-h-[56px] sm:min-w-[64px] sm:min-h-[64px] ${
           isOpen ? "bg-slate-700 hover:bg-slate-600 active:bg-slate-800" : "bg-blue-500 hover:bg-blue-600 active:bg-blue-700"
         }`}
         style={{

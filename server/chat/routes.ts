@@ -16,6 +16,7 @@ import { asyncHandler } from "../middleware/errorHandler";
 import { logger } from "../utils/logger";
 import { CHAT } from "../constants";
 import { env, isOpenAIConfigured } from "../config";
+import { inferState, determineAction, type ConversationState } from "./state";
 
 // Initialize OpenAI client if API key is provided (chat is optional)
 // baseURL allows using proxies or alternative endpoints
@@ -26,38 +27,77 @@ const openai = isOpenAIConfigured()
     })
   : null;
 
-const SYSTEM_PROMPT = `You're a helpful assistant for Kelowna Resource Finder. Help people find local services in Kelowna, BC.
+const SYSTEM_PROMPT = `You are a guided resource assistant for Kelowna Resource Finder.
 
-**Rules:**
-- No medical/legal advice. Redirect to professionals.
-- For crises: 911 or Crisis Line 1-888-353-2273
-- Be warm, brief (2-3 sentences), provide 1-2 resources max
-- Ask clarifying questions if needed
+**Your Role:**
+You help people find local services in Kelowna and West Kelowna, BC. You are calm, clear, and focused on getting users the right information quickly.
 
-**Location-Based Help:**
-- When user asks for ANY resource (food, shelter, health, etc.):
-  1. FIRST ask: "Are you in Kelowna or West Kelowna? What street or area are you near?"
-  2. Once location is provided, share nearest resources with phone numbers and addresses
-  3. Prioritize resources closest to their area
+**CRITICAL RULES - You MUST follow these:**
 
-**Special Priority for Shelter/Homelessness:**
-- If user mentions being cold, needing shelter, homelessness, or sleeping outside:
-  - Ask for location immediately
-  - Prioritize 24/7 emergency shelters
-  - Include real-time availability info when available
+1. **Ask ONE question at a time** - Never ask multiple questions in a single message. Wait for the user's response before asking the next question.
 
-**Key Resources:**
-- Crisis: 911, Crisis Line 1-888-353-2273, Kids Help Phone 1-800-668-6868
-- 24/7: Gospel Mission 250-763-3737 (meals/shelter), Bay Ave Shelter 236-420-0899
-- Food: Central Okanagan Food Bank 250-763-7161
+2. **Ask permission before using location** - Before searching for nearby resources, you MUST ask: "Would you like me to look for [resource type] options near you that are open right now?" Wait for their "yes" before asking for location.
+
+3. **Collect minimum information needed** - Only ask for what you actually need. Don't ask for unnecessary personal details.
+
+4. **Prefer open, nearby, verified resources** - When presenting options, prioritize:
+   - Resources that are open now
+   - Resources closest to the user's location
+   - Verified resources (marked with checkmark)
+
+5. **Help users plan next steps** - After presenting resources, help with:
+   - Directions (mention Google Maps links)
+   - Timing (when they're open, when to call)
+   - What to expect (eligibility, what to bring)
+
+**You MUST NOT:**
+- Give medical or legal advice (redirect to professionals)
+- Invent resources that don't exist
+- Overwhelm users with too many options (max 3-5 resources)
+- Ask for unnecessary personal details
+- Guess information you don't have - ask instead
+
+**Crisis Situations (CRITICAL):**
+- If user mentions suicide, self-harm, or wanting to die: ALWAYS ask permission first: "I'm here to help. Can I help you find crisis support and resources near you right now?" Do NOT just offer resources - wait for their permission.
+- For immediate emergencies: Direct to 911
+- For mental health crisis: Crisis Line 1-888-353-2273 or Kids Help Phone 1-800-668-6868
+- For suicide prevention: 988 or Crisis Line 1-888-353-2273
+
+**Age-Appropriate Resources:**
+- If user is an adult: Do NOT offer youth-only resources (resources for ages 13-24, youth shelters, etc.)
+- If user is a youth: Include youth-specific resources
+- When in doubt, ask: "Are you an adult or a youth?" before offering age-specific resources
+
+**Key Resources (for reference):**
+- 24/7 Shelters: Gospel Mission 250-763-3737, Bay Ave Shelter 236-420-0899
+- **Immediate Food (hungry now):** Community fridges (24/7), meal programs, community kitchens that serve hot meals
+- **Food Planning:** Central Okanagan Food Bank 250-763-7161 (may require appointment)
 - Youth: Foundry 236-420-2803, BGC Shelter 250-868-8541
 - Health: HealthLink 811, Outreach Urban Health 250-868-2230
-- Other: Dial 211 or bc211.ca
+- General: Dial 211 or visit bc211.ca
 
-**App Help:**
-- Search bar, browse categories, map view, save favorites
+**IMPORTANT - Food Requests:**
+- If someone says they're "hungry" or "hungry now", prioritize:
+  1. Community fridges (24/7 access, no appointment needed)
+  2. Meal programs/community kitchens (hot meals, may be open now)
+  3. Places serving meals today
+  4. Food banks (for planning ahead, may require appointments)
+- Never just say "go to the food bank" if they're hungry right now - offer immediate options first
 
-Keep responses short and helpful.`;
+**IMPORTANT - Shelter Requests:**
+- If someone says they're "tired and cold" or "need a place to sleep", prioritize:
+  1. 24/7 shelters (available right now)
+  2. Emergency shelters with space
+  3. Always direct them to check the City of Kelowna Shelter Dashboard for real-time availability: https://www.kelowna.ca/our-community/social-wellness/outdoor-overnight-sheltering
+- For urgent shelter needs, emphasize checking the live dashboard for current space availability
+
+**Response Style:**
+- Be warm and brief (2-3 sentences max)
+- One question per message
+- Use simple, clear language
+- Avoid jargon or technical terms
+
+Remember: You are helping people who may be stressed or in crisis. Be calm, clear, and helpful.`;
 
 /**
  * Registers all chat-related API routes.
@@ -212,135 +252,285 @@ export function registerChatRoutes(app: Express): void {
       // Fetch in reverse order, then reverse to get chronological order
       const messages = (await chatStorage.getMessagesByConversation(conversationId, CHAT.MAX_HISTORY_MESSAGES)).reverse();
       
-      // Detect resource needs (food, shelter, health, etc.)
-      const userQueryLower = trimmedContent.toLowerCase();
-      const shelterKeywords = ["cold", "freezing", "homeless", "homelessness", "shelter", "sleeping outside", "need a place", "nowhere to sleep", "no place to stay", "sleeping rough", "on the street"];
-      const needsShelter = shelterKeywords.some(keyword => userQueryLower.includes(keyword));
-      
-      // Detect other resource requests
-      const resourceKeywords = ["food", "meal", "hungry", "health", "clinic", "doctor", "medical", "counseling", "mental health", "legal", "lawyer", "aid", "help", "service", "resource", "need", "looking for", "find", "where"];
-      const needsResource = resourceKeywords.some(keyword => userQueryLower.includes(keyword)) || 
-                           userQueryLower.includes("i need") || 
-                           userQueryLower.includes("looking for") ||
-                           userQueryLower.includes("where can i");
-      
-      // Check conversation history for location information
-      const conversationText = messages.map(m => m.content).join(" ").toLowerCase();
-      const hasLocation = conversationText.includes("kelowna") || 
-                         conversationText.includes("west kelowna") ||
-                         conversationText.includes("street") ||
-                         conversationText.includes("avenue") ||
-                         conversationText.includes("road") ||
-                         conversationText.includes("near") ||
-                         conversationText.includes("downtown") ||
-                         conversationText.includes("rutland") ||
-                         conversationText.includes("glenmore");
+      // Infer conversation state (intent, permission, location, awaiting)
+      const state = inferState(messages);
+      const action = determineAction(state);
       
       let resourceContext = "";
       let locationContext = "";
+      let stateContext = "";
       
-      // Handle resource requests with location
-      if (needsShelter || needsResource) {
-        if (!hasLocation) {
-          // Ask for location for any resource request
-          const resourceType = needsShelter ? "shelter" : "resources";
-          locationContext = `\n\nIMPORTANT: User needs ${resourceType}. Ask for their location (Kelowna/West Kelowna and street/area) before providing resource information.`;
+      // Build state context for the LLM
+      if (state.intent && state.intent !== "unknown") {
+          stateContext += `\n\nCONVERSATION STATE:\n- User intent: ${state.intent}\n`;
+          if (state.urgency) {
+            stateContext += `- Urgency: ${state.urgency}\n`;
+          }
+          if (state.isCrisis) {
+            stateContext += `- CRISIS SITUATION: User mentioned suicide/self-harm - handle with extra care, ask permission first\n`;
+          }
+          if (state.isAdult !== undefined) {
+            stateContext += `- User is ${state.isAdult ? "an adult" : "a youth"} - ${state.isAdult ? "exclude youth-only resources" : "include youth resources"}\n`;
+          }
+          stateContext += `- Permission granted: ${state.permissionGranted ? "Yes" : "No"}\n`;
+          if (state.location) {
+            stateContext += `- Location: ${state.location.value} (${state.location.type})\n`;
+          } else {
+            stateContext += `- Location: Not provided yet\n`;
+          }
+          if (state.awaiting) {
+            stateContext += `- Currently awaiting: ${state.awaiting}\n`;
+          }
+        }
+      
+      // Handle based on action
+      if (action === "ask_permission") {
+        // Ask for permission to search with location
+        let resourceType = state.intent === "shelter" ? "shelter options" : 
+                            state.intent === "food" ? "food options" :
+                            state.intent === "health" ? "health services" :
+                            state.intent === "legal" ? "legal aid services" :
+                            "resources";
+        
+        // For urgent food requests, emphasize immediate options
+        if (state.intent === "food" && state.urgency === "immediate") {
+          resourceType = "places where you can get food right now";
+        }
+        
+        // For urgent shelter requests, emphasize immediate options
+        if (state.intent === "shelter" && state.urgency === "immediate") {
+          resourceType = "shelters with space available right now";
+        }
+        
+        // For crisis situations, be more careful and supportive
+        if (state.isCrisis) {
+          stateContext += `\n\nCRITICAL: User is in crisis (suicide/self-harm mentioned). You MUST ask permission first with: "I'm here to help. Can I help you find crisis support and resources near you right now?" Do NOT just offer resources - wait for their permission.`;
         } else {
-          // Location provided - fetch relevant resources
-          if (needsShelter) {
-            // Fetch shelters specifically
-            const sheltersCategory = await storage.getCategoryBySlug("shelters");
-            if (sheltersCategory) {
-              const shelters = await storage.getResources({ categoryId: sheltersCategory.id });
-              // Sort by relevance (24/7 shelters first, then by name)
-              const sortedShelters = shelters.sort((a, b) => {
+          stateContext += `\n\nACTION REQUIRED: Ask the user ONE question: "Would you like me to look for ${resourceType} near you that are open right now?" Wait for their response before asking anything else.`;
+        }
+      } else if (action === "ask_location") {
+        // Ask for location
+        stateContext += `\n\nACTION REQUIRED: Ask the user ONE question: "What street or area are you near? An intersection is fine - you don't need to give an exact address." Wait for their response.`;
+      } else if (action === "fetch_resources") {
+        // Fetch and present resources
+        if (state.intent === "shelter" && state.location) {
+          // Fetch shelters specifically - prioritize 24/7 and filter by age if known
+          const sheltersCategory = await storage.getCategoryBySlug("shelters");
+          if (sheltersCategory) {
+            let shelters = await storage.getResources({ categoryId: sheltersCategory.id });
+            
+            // Filter out youth-only shelters if user is an adult
+            if (state.isAdult === true) {
+              shelters = shelters.filter(s => {
+                const nameLower = s.name.toLowerCase();
+                const descLower = s.description.toLowerCase();
+                // Exclude youth-only shelters for adults
+                return !nameLower.includes("youth") && !descLower.includes("youth only") && 
+                       !descLower.includes("ages 13-24") && !descLower.includes("ages 16-24");
+              });
+            }
+            
+            // For urgent shelter needs, prioritize 24/7 shelters and sort by availability
+            if (state.urgency === "immediate") {
+              shelters = shelters.sort((a, b) => {
+                const aIs247 = a.hours?.toLowerCase().includes("24/7") || a.hours?.toLowerCase().includes("24 hours");
+                const bIs247 = b.hours?.toLowerCase().includes("24/7") || b.hours?.toLowerCase().includes("24 hours");
+                if (aIs247 && !bIs247) return -1;
+                if (!aIs247 && bIs247) return 1;
+                
+                // Prefer verified resources
+                if (a.verified && !b.verified) return -1;
+                if (!a.verified && b.verified) return 1;
+                
+                return a.name.localeCompare(b.name);
+              });
+            } else {
+              // General sorting
+              shelters = shelters.sort((a, b) => {
                 const aIs247 = a.hours?.toLowerCase().includes("24/7") || a.hours?.toLowerCase().includes("24 hours");
                 const bIs247 = b.hours?.toLowerCase().includes("24/7") || b.hours?.toLowerCase().includes("24 hours");
                 if (aIs247 && !bIs247) return -1;
                 if (!aIs247 && bIs247) return 1;
                 return a.name.localeCompare(b.name);
               });
-              
-              // Format shelter info with availability
-              const shelterInfo = sortedShelters.slice(0, 5).map(s => {
-                let info = `• ${s.name}`;
-                if (s.phone) info += ` - Call ${s.phone}`;
-                if (s.address) info += ` - ${s.address}`;
-                if (s.hours) {
-                  const is247 = s.hours.toLowerCase().includes("24/7") || s.hours.toLowerCase().includes("24 hours");
-                  info += is247 ? " (24/7 available)" : ` (Hours: ${s.hours})`;
-                }
-                return info;
-              }).join("\n");
-              
-              resourceContext = `\n\nNEAREST SHELTERS IN KELOWNA/WEST KELOWNA:\n${shelterInfo}\n\nFor real-time shelter availability, check the City of Kelowna Shelter Dashboard.`;
-            }
-          } else {
-            // Fetch resources based on query
-            let categorySlug = null;
-            if (userQueryLower.includes("food") || userQueryLower.includes("meal") || userQueryLower.includes("hungry")) {
-              categorySlug = "food-banks";
-            } else if (userQueryLower.includes("health") || userQueryLower.includes("medical") || userQueryLower.includes("clinic") || userQueryLower.includes("doctor")) {
-              categorySlug = "health";
-            } else if (userQueryLower.includes("legal") || userQueryLower.includes("lawyer")) {
-              categorySlug = "legal";
             }
             
-            if (categorySlug) {
-              const category = await storage.getCategoryBySlug(categorySlug);
-              if (category) {
-                const resources = await storage.getResources({ categoryId: category.id });
-                const resourceInfo = resources.slice(0, 5).map(r => {
-                  let info = `• ${r.name}`;
-                  if (r.phone) info += ` - ${r.phone}`;
-                  if (r.address) info += ` - ${r.address}`;
-                  if (r.hours) info += ` (${r.hours})`;
-                  return info;
-                }).join("\n");
-                
-                resourceContext = `\n\nNEAREST ${category.name.toUpperCase()} RESOURCES:\n${resourceInfo}`;
+            // Format shelter info with emphasis on 24/7 and availability
+            const shelterInfo = shelters.slice(0, 5).map(s => {
+              let info = `• ${s.name}`;
+              if (s.phone) info += ` - Call ${s.phone}`;
+              if (s.address) info += ` - ${s.address}`;
+              if (s.hours) {
+                const is247 = s.hours.toLowerCase().includes("24/7") || s.hours.toLowerCase().includes("24 hours");
+                info += is247 ? " (24/7 - available right now)" : ` (Hours: ${s.hours})`;
               }
-            } else {
-              // General resource search
-              const allResources = await storage.getResources({ search: trimmedContent });
-              const resourceInfo = allResources.slice(0, 5).map(r => {
+              return info;
+            }).join("\n");
+            
+            const urgencyNote = state.urgency === "immediate" 
+              ? "\n\n**For real-time shelter availability and space:** Check the City of Kelowna Shelter Dashboard at https://www.kelowna.ca/our-community/social-wellness/outdoor-overnight-sheltering - it shows which shelters have space right now."
+              : "\n\n**For real-time shelter availability:** Check the City of Kelowna Shelter Dashboard on our website.";
+            
+            resourceContext = `\n\nNEAREST SHELTERS NEAR YOU:\n${shelterInfo}${urgencyNote}`;
+          }
+        } else if (state.intent === "food" && state.location) {
+            // Fetch food resources - prioritize immediate options for urgent requests
+            const allFoodResources = await storage.getResources({ search: "food" });
+            
+            // For immediate/urgent requests, prioritize:
+            // 1. Community kitchens/meal programs (hot meals, open now)
+            // 2. Community fridges (24/7 access)
+            // 3. Places serving meals today
+            // 4. Food banks (for general/planning requests)
+            
+            let prioritizedResources = allFoodResources;
+            
+            if (state.urgency === "immediate" || state.urgency === "soon") {
+              // Sort by: 24/7 access first, then open now, then meal programs, then food banks
+              prioritizedResources = allFoodResources.sort((a, b) => {
+                const aIs247 = a.hours?.toLowerCase().includes("24/7") || a.hours?.toLowerCase().includes("24 hours");
+                const bIs247 = b.hours?.toLowerCase().includes("24/7") || b.hours?.toLowerCase().includes("24 hours");
+                if (aIs247 && !bIs247) return -1;
+                if (!aIs247 && bIs247) return 1;
+                
+                // Check if it's a meal program/kitchen (serves hot meals)
+                const aIsMealProgram = a.name.toLowerCase().includes("kitchen") || 
+                                      a.name.toLowerCase().includes("meal") ||
+                                      a.description.toLowerCase().includes("hot meal") ||
+                                      a.description.toLowerCase().includes("lunch") ||
+                                      a.description.toLowerCase().includes("dinner") ||
+                                      a.description.toLowerCase().includes("breakfast");
+                const bIsMealProgram = b.name.toLowerCase().includes("kitchen") || 
+                                      b.name.toLowerCase().includes("meal") ||
+                                      b.description.toLowerCase().includes("hot meal") ||
+                                      b.description.toLowerCase().includes("lunch") ||
+                                      b.description.toLowerCase().includes("dinner") ||
+                                      b.description.toLowerCase().includes("breakfast");
+                if (aIsMealProgram && !bIsMealProgram) return -1;
+                if (!aIsMealProgram && bIsMealProgram) return 1;
+                
+                // Check if it's a community fridge (immediate access)
+                const aIsFridge = a.name.toLowerCase().includes("fridge") || 
+                                 a.description.toLowerCase().includes("community fridge");
+                const bIsFridge = b.name.toLowerCase().includes("fridge") || 
+                                b.description.toLowerCase().includes("community fridge");
+                if (aIsFridge && !bIsFridge) return -1;
+                if (!aIsFridge && bIsFridge) return 1;
+                
+                // Prefer verified resources
+                if (a.verified && !b.verified) return -1;
+                if (!a.verified && b.verified) return 1;
+                
+                return 0;
+              });
+            }
+            
+            // Format resource info with emphasis on immediate options
+            const resourceInfo = prioritizedResources.slice(0, 5).map(r => {
+              let info = `• ${r.name}`;
+              if (r.phone) info += ` - ${r.phone}`;
+              if (r.address) info += ` - ${r.address}`;
+              
+              // Add helpful context about what type of service it is
+              const is247 = r.hours?.toLowerCase().includes("24/7") || r.hours?.toLowerCase().includes("24 hours");
+              const isMealProgram = r.name.toLowerCase().includes("kitchen") || 
+                                    r.name.toLowerCase().includes("meal") ||
+                                    r.description.toLowerCase().includes("hot meal");
+              const isFridge = r.name.toLowerCase().includes("fridge");
+              
+              if (is247) {
+                info += ` (24/7 - available right now)`;
+              } else if (isMealProgram) {
+                info += ` (serves hot meals${r.hours ? ` - ${r.hours}` : ""})`;
+              } else if (isFridge) {
+                info += ` (community fridge - take what you need)`;
+              } else if (r.hours) {
+                info += ` (${r.hours})`;
+              }
+              
+              return info;
+            }).join("\n");
+            
+            const urgencyNote = state.urgency === "immediate" 
+              ? "\n\n**For immediate food access right now:** Community fridges and 24/7 options are listed first. If you need a hot meal, check meal programs and community kitchens."
+              : state.urgency === "soon"
+              ? "\n\n**For food today:** Check meal programs and community kitchens first. Food banks may require appointments."
+              : "";
+            
+            resourceContext = `\n\nFOOD RESOURCES NEAR YOU:\n${resourceInfo}${urgencyNote}`;
+          } else if (state.intent === "health" && state.location) {
+            // Fetch health resources - filter by age if known
+            const category = await storage.getCategoryBySlug("health");
+            if (category) {
+              let resources = await storage.getResources({ categoryId: category.id });
+              
+              // Filter out youth-only resources if user is an adult
+              if (state.isAdult === true) {
+                resources = resources.filter(r => {
+                  const nameLower = r.name.toLowerCase();
+                  const descLower = r.description.toLowerCase();
+                  return !nameLower.includes("youth") && !descLower.includes("youth only") && 
+                         !descLower.includes("ages 13-24") && !descLower.includes("ages 16-24") &&
+                         !nameLower.includes("foundry") && !nameLower.includes("kids help");
+                });
+              }
+              
+              const resourceInfo = resources.slice(0, 5).map(r => {
                 let info = `• ${r.name}`;
                 if (r.phone) info += ` - ${r.phone}`;
                 if (r.address) info += ` - ${r.address}`;
+                if (r.hours) info += ` (${r.hours})`;
                 return info;
               }).join("\n");
               
-              if (resourceInfo) {
-                resourceContext = `\n\nNEAREST RESOURCES:\n${resourceInfo}`;
-              }
+              resourceContext = `\n\nNEAREST HEALTH RESOURCES:\n${resourceInfo}`;
+            }
+          } else if (state.intent === "legal" && state.location) {
+            // Fetch legal resources
+            const category = await storage.getCategoryBySlug("legal");
+            if (category) {
+              const resources = await storage.getResources({ categoryId: category.id });
+              const resourceInfo = resources.slice(0, 5).map(r => {
+                let info = `• ${r.name}`;
+                if (r.phone) info += ` - ${r.phone}`;
+                if (r.address) info += ` - ${r.address}`;
+                if (r.hours) info += ` (${r.hours})`;
+                return info;
+              }).join("\n");
+              
+              resourceContext = `\n\nNEAREST LEGAL RESOURCES:\n${resourceInfo}`;
+            }
+          } else if (state.intent && state.intent !== "unknown" && state.location) {
+            // General resource search for other intents - filter by age if known
+            let allResources = await storage.getResources({ search: trimmedContent });
+            
+            // Filter out youth-only resources if user is an adult
+            if (state.isAdult === true) {
+              allResources = allResources.filter(r => {
+                const nameLower = r.name.toLowerCase();
+                const descLower = r.description.toLowerCase();
+                return !nameLower.includes("youth") && !descLower.includes("youth only") && 
+                       !descLower.includes("ages 13-24") && !descLower.includes("ages 16-24");
+              });
+            }
+            
+            const resourceInfo = allResources.slice(0, 5).map(r => {
+              let info = `• ${r.name}`;
+              if (r.phone) info += ` - ${r.phone}`;
+              if (r.address) info += ` - ${r.address}`;
+              return info;
+            }).join("\n");
+            
+            if (resourceInfo) {
+              resourceContext = `\n\nNEAREST RESOURCES:\n${resourceInfo}`;
             }
           }
         }
-      } else {
-        // General queries - still check if they need location
-        const needsResourceList = userQueryLower.includes("list") || 
-                                  userQueryLower.includes("all") || 
-                                  userQueryLower.includes("show me") ||
-                                  userQueryLower.includes("what");
-        
-        if (needsResourceList && !hasLocation) {
-          locationContext = "\n\nIMPORTANT: Ask for user's location (Kelowna/West Kelowna and street/area) to provide nearest resources.";
-        } else if (needsResourceList) {
-          // Only fetch resources if needed - limit to 10 most relevant to save tokens
-          const allResources = await storage.getResources();
-          const limitedResources = allResources.slice(0, 10);
-          resourceContext = limitedResources
-            .map(
-              (resource) =>
-                `${resource.name}${resource.phone ? `: ${resource.phone}` : ""}`
-            )
-            .join(", ");
-        }
-      }
       
-      const systemContent = (resourceContext || locationContext)
-        ? SYSTEM_PROMPT + locationContext + (resourceContext ? `\n\nResources: ${resourceContext}` : "")
-        : SYSTEM_PROMPT;
+      // Build system content with state context
+      const systemContent = SYSTEM_PROMPT + stateContext + 
+        (resourceContext ? `\n\nRESOURCES TO PRESENT:\n${resourceContext}` : "") +
+        (locationContext ? `\n\n${locationContext}` : "");
       
       const chatMessages: Array<{role: "system" | "user" | "assistant", content: string}> = [
         { role: "system", content: systemContent },

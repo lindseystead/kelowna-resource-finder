@@ -260,6 +260,7 @@ export default function RequestUpdate() {
                           placeholder="e.g., Central Okanagan Food Bank"
                           data-testid="input-resource-name"
                           className="h-11 sm:h-10 text-sm sm:text-base touch-manipulation"
+                          maxLength={200}
                         />
                       </FormControl>
                       <FormMessage />
@@ -279,6 +280,7 @@ export default function RequestUpdate() {
                           placeholder="Your full name"
                           data-testid="input-contact-name"
                           className="h-11 sm:h-10 text-sm sm:text-base touch-manipulation"
+                          maxLength={100}
                         />
                       </FormControl>
                       <FormMessage />
@@ -457,6 +459,7 @@ export default function RequestUpdate() {
                             : "Please describe the service, including what it offers, who it serves, eligibility requirements, etc."}
                           className="min-h-[120px] sm:min-h-[150px] text-sm sm:text-base touch-manipulation resize-y"
                           data-testid="textarea-details"
+                          maxLength={5000}
                         />
                       </FormControl>
                       <FormMessage />

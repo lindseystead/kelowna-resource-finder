@@ -27,6 +27,15 @@ API endpoints for Help Kelowna.
 - `DELETE /api/conversations/:id` - Delete conversation
 - `POST /api/conversations/:id/messages` - Send message (SSE streaming)
 
+**Chat Features:**
+
+- **State-Aware Conversations**: The chatbot tracks conversation state (intent, urgency, permission, location) to provide contextually appropriate responses
+- **One Question at a Time**: Structured flow that asks permission first, then location, then provides resources
+- **Urgency Detection**: Detects urgent needs (e.g., "hungry now", "tired and cold") and prioritizes immediate options
+- **Age Filtering**: Automatically filters out youth-only resources for adult users
+- **Crisis Support**: Special handling for crisis situations - always asks permission first before offering resources
+- **Live Shelter Data**: Directs users to City of Kelowna Shelter Dashboard for real-time availability
+
 ## Authentication
 
 - `POST /api/auth/login` - Authenticate user
@@ -53,8 +62,9 @@ Most endpoints use session cookies. Admin endpoints require the `admin` role.
 ## Rate Limiting
 
 Rate limiting is applied via `express-rate-limit`:
+
 - Auth endpoints: 5 requests per 15 minutes
-- Login endpoint: 3 requests per 15 minutes  
+- Login endpoint: 3 requests per 15 minutes
 - General API (`/api/*`): 100 requests per 15 minutes
 - Strict endpoints: 20 requests per 15 minutes
 

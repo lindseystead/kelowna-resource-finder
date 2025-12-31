@@ -15,9 +15,81 @@ import { api } from "@shared/routes";
 import { registerChatRoutes } from "./chat";
 import { asyncHandler } from "./middleware/errorHandler";
 import { logger } from "./utils/logger";
-import { updateResourceSchema, categories } from "@shared/schema";
+import { updateResourceSchema, categories, resourceCategories } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+
+/**
+ * Assigns additional categories to resources that belong in multiple categories.
+ * Uses the many-to-many junction table to allow resources to appear in multiple categories.
+ */
+async function assignMultipleCategories(catMap: Map<string, number>): Promise<void> {
+  // Get all resources to check for multi-category assignments
+  const allResources = await storage.getResources();
+  
+  for (const resource of allResources) {
+    const additionalCategories: number[] = [];
+    const nameLower = resource.name.toLowerCase();
+    const descLower = resource.description.toLowerCase();
+    
+    // Youth shelters should also be in "shelters" category
+    if (nameLower.includes('youth') && (nameLower.includes('shelter') || descLower.includes('shelter'))) {
+      const youthCatId = catMap.get('youth');
+      const shelterCatId = catMap.get('shelters');
+      if (youthCatId && shelterCatId) {
+        // Check if already in shelters category
+        const existing = await db
+          .select()
+          .from(resourceCategories)
+          .where(and(
+            eq(resourceCategories.resourceId, resource.id),
+            eq(resourceCategories.categoryId, shelterCatId)
+          ))
+          .limit(1);
+        if (existing.length === 0) {
+          additionalCategories.push(shelterCatId);
+        }
+      }
+    }
+    
+    // Crisis resources for youth should also be in "youth" category
+    if ((nameLower.includes('youth') || descLower.includes('youth') || descLower.includes('young people')) && 
+        (nameLower.includes('crisis') || nameLower.includes('hotline') || nameLower.includes('helpline'))) {
+      const crisisCatId = catMap.get('crisis');
+      const youthCatId = catMap.get('youth');
+      if (crisisCatId && youthCatId) {
+        const existing = await db
+          .select()
+          .from(resourceCategories)
+          .where(and(
+            eq(resourceCategories.resourceId, resource.id),
+            eq(resourceCategories.categoryId, youthCatId)
+          ))
+          .limit(1);
+        if (existing.length === 0) {
+          additionalCategories.push(youthCatId);
+        }
+      }
+    }
+    
+    // Add additional categories if any
+    if (additionalCategories.length > 0) {
+      for (const catId of additionalCategories) {
+        try {
+          await db.insert(resourceCategories).values({
+            resourceId: resource.id,
+            categoryId: catId,
+          });
+        } catch (error: any) {
+          // Ignore duplicate key errors (composite primary key violation)
+          if (!error?.code || error.code !== '23505') {
+            logger.error(`Failed to assign category ${catId} to resource ${resource.id}`, error);
+          }
+        }
+      }
+    }
+  }
+}
 
 /**
  * Seeds the database with initial categories and resources if empty.
@@ -268,17 +340,6 @@ async function seedDatabase() {
       website: "https://bc211.ca",
       email: "info@bc211.ca",
       hours: "9:00 AM - 9:00 PM Weekdays (excluding holidays). For emergencies, call 9-1-1.",
-      verified: true
-    },
-    {
-      categoryId: catMap.get("crisis")!,
-      name: "Kids Help Phone",
-      description: "24/7 counseling and support for young people. Call, text, or chat online.",
-      address: "Phone service - available anywhere",
-      phone: "1-800-668-6868",
-      website: "https://kidshelpphone.ca",
-      email: "info@kidshelpphone.ca",
-      hours: "24/7",
       verified: true
     },
     {
@@ -982,19 +1043,6 @@ async function seedDatabase() {
     },
     {
       categoryId: catMap.get("shelters")!,
-      name: "BGC Okanagan Downtown Youth Shelter",
-      description: "Emergency shelter for youth ages 13-24. Safe space with support services.",
-      address: "1633 Richter St, Kelowna, BC",
-      phone: "250-868-8541",
-      website: "https://www.bgcok.com",
-      email: "info@bgcok.com",
-      latitude: "49.8798",
-      longitude: "-119.4905",
-      hours: "November to April: Open overnight with services during the day",
-      verified: true
-    },
-    {
-      categoryId: catMap.get("shelters")!,
       name: "AG House - Women's Shelter",
       description: "Emergency shelter for women and children 16+. Safe and supportive environment.",
       address: "Confidential location, Kelowna, BC",
@@ -1144,16 +1192,6 @@ async function seedDatabase() {
     },
     {
       categoryId: catMap.get("health")!,
-      name: "HealthLink BC",
-      description: "Free health information and advice 24/7. Nurses available to answer health questions.",
-      address: "Phone service available anywhere",
-      phone: "811",
-      website: "https://www.healthlinkbc.ca",
-      email: "info@healthlinkbc.ca",
-      verified: true
-    },
-    {
-      categoryId: catMap.get("health")!,
       name: "Interior Health Public Health",
       description: "Immunizations, sexual health, prenatal classes, and public health programs.",
       address: "505 Doyle Ave, Kelowna, BC V1Y 0C5",
@@ -1282,14 +1320,6 @@ async function seedDatabase() {
       latitude: "49.8872",
       longitude: "-119.4962",
       hours: "Monday-Friday 8:30 AM - 4:00 PM (by appointment)",
-      verified: true
-    },
-    {
-      categoryId: catMap.get("medical-clinics")!,
-      name: "Kelowna Dental Clinic for Low Income",
-      description: "Free and reduced-cost dental care for low-income residents. Call for eligibility and appointments.",
-      address: "Kelowna, BC",
-      hours: "Monday-Friday 8:00 AM - 4:00 PM (call for appointment)",
       verified: true
     },
     // Home Care
@@ -2446,19 +2476,6 @@ async function seedDatabase() {
       categoryId: catMap.get("holiday-support")!,
       name: "Kelowna SHARE Society - Adopt a Family Hamper Program",
       description: "Operates from October to December, aiming to assist families and individuals during the holiday season by alleviating financial stress. Provides holiday hampers with food, gifts, and essential items to families in need.",
-      address: "581 Gaston Avenue, Kelowna, BC V1Y 7E6",
-      phone: "250-763-8117",
-      website: "https://www.kelownasharesociety.ca",
-      email: "info@kelownasharesociety.ca",
-      latitude: "49.8830",
-      longitude: "-119.4800",
-      hours: "October to December - call for registration",
-      verified: true
-    },
-    {
-      categoryId: catMap.get("family")!,
-      name: "Kelowna SHARE Society - Adopt a Family Hamper Program",
-      description: "Holiday assistance program operating October to December. Provides holiday hampers with food, gifts, and essential items to families and individuals in need during the holiday season.",
       address: "581 Gaston Avenue, Kelowna, BC V1Y 7E6",
       phone: "250-763-8117",
       website: "https://www.kelownasharesociety.ca",
@@ -3779,17 +3796,6 @@ async function seedDatabase() {
       hours: "7 days a week, 11:30 AM - 10:30 PM",
       verified: true
     },
-    {
-      categoryId: catMap.get("crisis")!,
-      name: "Downtown Overdose Prevention Site - Kelowna",
-      description: "Supervised consumption site providing safe, monitored spaces for substance use. Staff trained in overdose response and naloxone administration. Reduces overdose deaths and connects people to health and social services.",
-      address: "1649 Pandosy Street (behind Outreach Urban Health Centre), Kelowna, BC V1Y 1P6",
-      phone: "250-868-2230",
-      website: "https://www.interiorhealth.ca",
-      email: "info@interiorhealth.ca",
-      hours: "7 days a week, 11:30 AM - 10:30 PM",
-      verified: true
-    },
     // Drug Checking Services
     {
       categoryId: catMap.get("addiction")!,
@@ -3969,6 +3975,11 @@ async function seedDatabase() {
       });
     }
   });
+  
+  // After creating all resources, assign additional categories for resources that belong in multiple categories
+  // This uses the many-to-many junction table
+  logger.info("Assigning additional categories for multi-category resources...");
+  await assignMultipleCategories(catMap);
   
   logger.info(`Database seeding complete! ${successCount} resources created${failureCount > 0 ? `, ${failureCount} failed` : ''}`);
 }

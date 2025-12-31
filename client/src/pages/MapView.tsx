@@ -127,6 +127,7 @@ export default function MapView() {
       // (they won't show as markers but will be counted in stats)
       
       if (selectedCategory !== "all") {
+        if (!resource.categoryId) return false;
         const category = categoryMap.get(resource.categoryId);
         if (!category || category.slug !== selectedCategory) return false;
       }
@@ -316,7 +317,7 @@ export default function MapView() {
             {filteredResources
               .filter(resource => isValidCoordinate(resource.latitude, resource.longitude))
               .map(resource => {
-              const category = categoryMap.get(resource.categoryId);
+              const category = resource.categoryId ? categoryMap.get(resource.categoryId) : undefined;
               const color = category ? categoryColors[category.slug] || "#6366f1" : "#6366f1";
               const lat = parseFloat(resource.latitude!);
               const lng = parseFloat(resource.longitude!);

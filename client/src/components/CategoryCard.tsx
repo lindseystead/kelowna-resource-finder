@@ -78,7 +78,9 @@ function getIconComponent(iconName: string): LucideIcon {
   
   // Fallback to HelpCircle if icon not found
   if (process.env.NODE_ENV === 'development') {
-    console.warn(`Icon "${iconName}" (mapped to "${mappedName}") not found in lucide-react, using HelpCircle as fallback`);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`Icon "${iconName}" (mapped to "${mappedName}") not found in lucide-react, using HelpCircle as fallback`);
+    }
   }
   return (LucideIcons.HelpCircle || LucideIcons.HelpCircleIcon) as LucideIcon;
 }

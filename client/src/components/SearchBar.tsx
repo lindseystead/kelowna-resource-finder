@@ -52,14 +52,30 @@ export function SearchBar({
   const handleSearch = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      const trimmedQuery = query.trim();
+      let trimmedQuery = query.trim();
       
-      if (trimmedQuery) {
-        if (onSubmit) {
-          onSubmit(trimmedQuery);
-        } else {
-          setLocation(`/search?q=${encodeURIComponent(trimmedQuery)}`);
-        }
+      // Handle edge cases: empty, too long, only special characters
+      if (!trimmedQuery) {
+        return; // Don't search if empty
+      }
+      
+      // Limit query length to prevent abuse (200 chars is reasonable)
+      if (trimmedQuery.length > 200) {
+        trimmedQuery = trimmedQuery.substring(0, 200);
+      }
+      
+      // Remove excessive whitespace
+      trimmedQuery = trimmedQuery.replace(/\s+/g, ' ').trim();
+      
+      // If after cleaning it's empty, don't search
+      if (!trimmedQuery) {
+        return;
+      }
+      
+      if (onSubmit) {
+        onSubmit(trimmedQuery);
+      } else {
+        setLocation(`/search?q=${encodeURIComponent(trimmedQuery)}`);
       }
     },
     [query, onSubmit, setLocation]

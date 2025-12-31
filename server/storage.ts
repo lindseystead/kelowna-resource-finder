@@ -12,8 +12,8 @@
  */
 
 import { db } from "./db";
-import { categories, resources, updateRequests, type Category, type Resource, type InsertCategory, type InsertResource, type UpdateRequest, type InsertUpdateRequest } from "@shared/schema";
-import { eq, ilike, or, and, desc, type SQL } from "drizzle-orm";
+import { categories, resources, resourceCategories, updateRequests, type Category, type Resource, type InsertCategory, type InsertResource, type UpdateRequest, type InsertUpdateRequest, type InsertResourceCategory } from "@shared/schema";
+import { eq, ilike, or, and, desc, inArray, type SQL } from "drizzle-orm";
 
 export interface IStorage {
   // Categories
@@ -54,19 +54,33 @@ export class DatabaseStorage implements IStorage {
 
     // Build up conditions based on what filters are provided
     // Drizzle handles parameterization automatically so we're safe from SQL injection
+    
+    // For category filtering, use the many-to-many junction table
+    // This allows resources to appear in multiple categories
     if (options?.categoryId) {
-      conditions.push(eq(resources.categoryId, options.categoryId));
-    }
-
-    if (options?.search) {
-      // Case-insensitive search across name and description
-      const searchLower = `%${options.search.toLowerCase()}%`;
-      const searchCondition = or(
-        ilike(resources.name, searchLower),
-        ilike(resources.description, searchLower)
-      );
-      if (searchCondition) {
-        conditions.push(searchCondition);
+      // Get all resource IDs that belong to this category via junction table
+      const resourceIdsInCategory = await db
+        .select({ resourceId: resourceCategories.resourceId })
+        .from(resourceCategories)
+        .where(eq(resourceCategories.categoryId, options.categoryId));
+      
+      const ids = resourceIdsInCategory.map(r => r.resourceId);
+      
+      // Fallback: Also check legacy categoryId for backward compatibility during migration
+      // This ensures resources without junction table entries still work
+      const legacyResources = await db
+        .select({ id: resources.id })
+        .from(resources)
+        .where(eq(resources.categoryId, options.categoryId));
+      
+      const legacyIds = legacyResources.map(r => r.id);
+      const allIds = Array.from(new Set([...ids, ...legacyIds])); // Combine and deduplicate
+      
+      if (allIds.length > 0) {
+        conditions.push(inArray(resources.id, allIds));
+      } else {
+        // No resources in this category, return empty array
+        return [];
       }
     }
 
@@ -74,7 +88,8 @@ export class DatabaseStorage implements IStorage {
       conditions.push(ilike(resources.name, `%${options.name}%`));
     }
 
-    // Build the query - handle 0, 1, or multiple conditions
+    // For search, we'll get all resources and then score/rank them intelligently
+    // This allows for more sophisticated relevance scoring
     let results: Resource[];
     if (conditions.length === 0) {
       results = await db.select().from(resources);
@@ -84,85 +99,171 @@ export class DatabaseStorage implements IStorage {
       results = await db.select().from(resources).where(and(...conditions));
     }
 
-    // Post-process search results to filter out inappropriate matches
+    // Google-like intelligent search with relevance scoring
     if (options?.search) {
-      const searchLower = options.search.toLowerCase().trim();
-      const searchWords = searchLower.split(/\s+/);
+      // Normalize and clean search query
+      const rawQuery = options.search.trim();
+      if (!rawQuery || rawQuery.length === 0) {
+        return results; // Return all if empty query
+      }
+
+      // Remove special characters but keep spaces and basic punctuation
+      const cleanedQuery = rawQuery.replace(/[^\w\s-]/g, ' ').trim();
+      if (cleanedQuery.length === 0) {
+        return []; // No valid search terms
+      }
+
+      const searchLower = cleanedQuery.toLowerCase();
+      const searchWords = searchLower.split(/\s+/).filter(word => word.length > 0);
+      
+      // If no valid words after cleaning, return empty
+      if (searchWords.length === 0) {
+        return [];
+      }
+
+      // Get the crisis category ID to exclude crisis resources from non-crisis searches
+      const crisisCategory = await db.select().from(categories).where(eq(categories.slug, 'crisis')).limit(1);
+      const crisisCategoryId = crisisCategory.length > 0 ? crisisCategory[0].id : null;
+      
+      // Get all resource IDs that belong to crisis category (via junction table)
+      let crisisResourceIds: number[] = [];
+      if (crisisCategoryId !== null) {
+        const crisisResources = await db
+          .select({ resourceId: resourceCategories.resourceId })
+          .from(resourceCategories)
+          .where(eq(resourceCategories.categoryId, crisisCategoryId));
+        crisisResourceIds = crisisResources.map(r => r.resourceId);
+        
+        // Also include legacy categoryId resources for backward compatibility
+        const legacyCrisisResources = await db
+          .select({ id: resources.id })
+          .from(resources)
+          .where(eq(resources.categoryId, crisisCategoryId));
+        const legacyIds = legacyCrisisResources.map(r => r.id);
+        crisisResourceIds = Array.from(new Set([...crisisResourceIds, ...legacyIds]));
+      }
       
       // Keywords that indicate crisis/mental health related searches
-      const crisisKeywords = [
-        'suicide', 'crisis', 'mental health', 'depression', 'anxiety', 
-        'self-harm', 'emergency', 'hotline', 'helpline', '988', 'crisis line',
-        'mental wellness', 'psychological', 'therapy', 'counseling', 'counselling',
-        'trauma', 'ptsd', 'bipolar', 'schizophrenia', 'psychiatric'
+      const crisisSearchKeywords = [
+        'suicide', 'crisis', 'mental health crisis', 'depression help', 'anxiety crisis',
+        'self-harm', 'suicidal', 'crisis hotline', 'crisis helpline', '988',
+        'crisis line', 'suicide prevention', 'mental health emergency',
+        'psychological crisis', 'trauma crisis', 'ptsd crisis', 'mental health'
       ];
       
-      // Check if search is crisis-related
-      const isCrisisSearch = crisisKeywords.some(keyword => 
-        searchLower.includes(keyword) || keyword.includes(searchLower)
+      // Check if search is explicitly crisis-related
+      const isCrisisSearch = crisisSearchKeywords.some(keyword => 
+        searchLower.includes(keyword)
       );
       
-      // Keywords that indicate crisis resources (to exclude from non-crisis searches)
-      const crisisResourceIndicators = [
-        'suicide', 'crisis', '988', 'hotline', 'helpline', 'lifeline',
-        'crisis intervention', 'crisis support', 'suicide prevention',
-        'crisis line', 'talk suicide', '1-800-suicide'
+      // Keywords that indicate the search is about shelters/housing (NOT crisis)
+      const shelterHousingKeywords = [
+        'shelter', 'housing', 'accommodation', 'place to stay', 'emergency housing',
+        'temporary housing', 'homeless', 'homelessness', 'pet', 'dog', 'cat',
+        'animal', 'domestic violence shelter', 'women\'s shelter', 'men\'s shelter',
+        'family shelter', 'youth shelter', 'transitional housing', 'emergency shelter'
       ];
       
-      // Filter and rank results
-      results = results
-        .filter(resource => {
-          // If search is NOT crisis-related, exclude crisis resources
-          if (!isCrisisSearch) {
-            const nameLower = (resource.name || '').toLowerCase();
-            const descLower = (resource.description || '').toLowerCase();
-            const isCrisisResource = crisisResourceIndicators.some(indicator =>
-              nameLower.includes(indicator) || descLower.includes(indicator)
-            );
-            
-            // Exclude crisis resources from non-crisis searches
-            if (isCrisisResource) {
-              return false;
+      // Check if search is about shelters/housing
+      const isShelterSearch = shelterHousingKeywords.some(keyword => 
+        searchLower.includes(keyword)
+      );
+
+      // Calculate relevance score for each resource (Google-like algorithm)
+      const scoredResults = results.map(resource => {
+        const nameLower = (resource.name || '').toLowerCase();
+        const descLower = (resource.description || '').toLowerCase();
+        const addressLower = (resource.address || '').toLowerCase();
+        const fullText = `${nameLower} ${descLower} ${addressLower}`;
+        
+        let score = 0;
+
+        // Exclude crisis resources from non-crisis searches
+        // Check both junction table and legacy categoryId for backward compatibility
+        const isCrisisResource = crisisResourceIds.includes(resource.id) || 
+                                  (crisisCategoryId !== null && resource.categoryId === crisisCategoryId);
+        
+        if (!isCrisisSearch && isCrisisResource) {
+          // If it's a shelter search, definitely exclude crisis
+          if (isShelterSearch) {
+            return { resource, score: -1000 }; // Heavily penalize
+          }
+          // For general searches, exclude crisis
+          return { resource, score: -1000 };
+        }
+
+        // Exact phrase match in name (highest priority)
+        if (nameLower.includes(searchLower)) {
+          score += 1000;
+        }
+
+        // Exact phrase match in description
+        if (descLower.includes(searchLower)) {
+          score += 500;
+        }
+
+        // Count how many search words match in name
+        const nameWordMatches = searchWords.filter(word => nameLower.includes(word)).length;
+        score += nameWordMatches * 200; // Each word match in name = 200 points
+
+        // Count how many search words match in description
+        const descWordMatches = searchWords.filter(word => descLower.includes(word)).length;
+        score += descWordMatches * 100; // Each word match in description = 100 points
+
+        // Bonus for matching all words (AND logic)
+        if (nameWordMatches === searchWords.length) {
+          score += 300; // All words in name
+        }
+        if (descWordMatches === searchWords.length) {
+          score += 150; // All words in description
+        }
+
+        // Bonus for word appearing at start of name
+        searchWords.forEach(word => {
+          if (nameLower.startsWith(word)) {
+            score += 150;
+          }
+        });
+
+        // Partial word matches (fuzzy matching for typos)
+        searchWords.forEach(word => {
+          if (word.length >= 3) {
+            // Check if any word in name/description starts with search word (prefix match)
+            const nameWords = nameLower.split(/\s+/);
+            const descWords = descLower.split(/\s+/);
+            if (nameWords.some(nw => nw.startsWith(word))) {
+              score += 50;
+            }
+            if (descWords.some(dw => dw.startsWith(word))) {
+              score += 25;
             }
           }
-          
-          // Ensure the resource actually matches the search
-          const nameLower = (resource.name || '').toLowerCase();
-          const descLower = (resource.description || '').toLowerCase();
-          
-          // Must match at least one search word in name or description
-          return searchWords.some(word => 
-            nameLower.includes(word) || descLower.includes(word)
-          );
-        })
-        .sort((a, b) => {
-          // Prioritize name matches over description matches
-          const aNameLower = (a.name || '').toLowerCase();
-          const bNameLower = (b.name || '').toLowerCase();
-          const aDescLower = (a.description || '').toLowerCase();
-          const bDescLower = (b.description || '').toLowerCase();
-          
-          const aNameMatch = searchWords.some(word => aNameLower.includes(word));
-          const bNameMatch = searchWords.some(word => bNameLower.includes(word));
-          
-          // Name matches first
-          if (aNameMatch && !bNameMatch) return -1;
-          if (!aNameMatch && bNameMatch) return 1;
-          
-          // Then prioritize exact name matches
-          if (aNameLower.includes(searchLower) && !bNameLower.includes(searchLower)) return -1;
-          if (!aNameLower.includes(searchLower) && bNameLower.includes(searchLower)) return 1;
-          
-          // Then prioritize description matches
-          const aDescMatch = searchWords.some(word => aDescLower.includes(word));
-          const bDescMatch = searchWords.some(word => bDescLower.includes(word));
-          
-          if (aDescMatch && !bDescMatch) return -1;
-          if (!aDescMatch && bDescMatch) return 1;
-          
-          // Finally, alphabetical
-          return aNameLower.localeCompare(bNameLower);
         });
+
+        // Penalty if no words match at all
+        if (nameWordMatches === 0 && descWordMatches === 0) {
+          score = -500; // Heavily penalize no matches
+        }
+
+        // Bonus for verified resources
+        if (resource.verified) {
+          score += 10;
+        }
+
+        return { resource, score };
+      })
+      .filter(item => item.score > 0) // Only return results with positive scores
+      .sort((a, b) => {
+        // Sort by score (highest first)
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        // If scores are equal, sort alphabetically by name
+        return a.resource.name.localeCompare(b.resource.name);
+      })
+      .map(item => item.resource);
+
+      return scoredResults;
     }
     
     return results;
@@ -173,9 +274,76 @@ export class DatabaseStorage implements IStorage {
     return resource;
   }
 
-  async createResource(insertResource: InsertResource): Promise<Resource> {
+  async createResource(insertResource: InsertResource, categoryIds?: number[]): Promise<Resource> {
     const [resource] = await db.insert(resources).values(insertResource).returning();
+    
+    // If categoryIds provided, create junction table entries for many-to-many relationship
+    if (categoryIds && categoryIds.length > 0) {
+      const junctionEntries = categoryIds.map(catId => ({
+        resourceId: resource.id,
+        categoryId: catId,
+      }));
+      // Insert with conflict handling - composite primary key prevents duplicates
+      try {
+        await db.insert(resourceCategories).values(junctionEntries);
+      } catch (error: any) {
+        // Ignore duplicate key errors (composite primary key violation)
+        // This is safe because the primary key constraint prevents duplicates
+        if (!error?.code || error.code !== '23505') { // 23505 = unique_violation in PostgreSQL
+          throw error;
+        }
+      }
+    } else if (insertResource.categoryId) {
+      // Fallback: If no categoryIds but categoryId exists, create junction entry for backward compatibility
+      try {
+        await db.insert(resourceCategories).values({
+          resourceId: resource.id,
+          categoryId: insertResource.categoryId,
+        });
+      } catch (error: any) {
+        // Ignore duplicate key errors
+        if (!error?.code || error.code !== '23505') {
+          throw error;
+        }
+      }
+    }
+    
     return resource;
+  }
+  
+  /**
+   * Get all category IDs for a resource (via junction table)
+   */
+  async getResourceCategoryIds(resourceId: number): Promise<number[]> {
+    const entries = await db
+      .select({ categoryId: resourceCategories.categoryId })
+      .from(resourceCategories)
+      .where(eq(resourceCategories.resourceId, resourceId));
+    return entries.map(e => e.categoryId);
+  }
+  
+  /**
+   * Set categories for a resource (replaces existing categories)
+   */
+  async setResourceCategories(resourceId: number, categoryIds: number[]): Promise<void> {
+    // Delete existing categories
+    await db.delete(resourceCategories).where(eq(resourceCategories.resourceId, resourceId));
+    
+    // Insert new categories
+    if (categoryIds.length > 0) {
+      const entries = categoryIds.map(catId => ({
+        resourceId,
+        categoryId: catId,
+      }));
+      try {
+        await db.insert(resourceCategories).values(entries);
+      } catch (error: any) {
+        // Ignore duplicate key errors (shouldn't happen after delete, but safe to handle)
+        if (!error?.code || error.code !== '23505') {
+          throw error;
+        }
+      }
+    }
   }
 
   async updateResource(id: number, updates: Partial<InsertResource>): Promise<Resource | undefined> {
