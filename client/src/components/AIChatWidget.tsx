@@ -302,14 +302,24 @@ export function AIChatWidget() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-16 sm:bottom-24 right-2 sm:right-4 w-[calc(100vw-1rem)] sm:w-[380px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-[60] flex flex-col"
+            className={[
+              // Mobile: full-width "sheet" that doesn't fight the keyboard/header.
+              "fixed left-0 right-0 bottom-0",
+              // Desktop: floating panel
+              "sm:bottom-24 sm:right-4 sm:left-auto sm:w-[380px] sm:max-w-[calc(100vw-2rem)]",
+              "bg-white shadow-lg border border-gray-200 overflow-hidden z-[60] flex flex-col",
+              "rounded-t-xl sm:rounded-xl",
+            ].join(" ")}
             style={{ 
-              top: 'max(4rem, calc(4rem + env(safe-area-inset-top, 0)))',
-              height: "calc(100vh - 4rem - 4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
-              maxHeight: "calc(100vh - 4rem - 4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+              // Use dvh to behave better when the mobile keyboard is open.
+              top: "max(4rem, calc(4rem + env(safe-area-inset-top, 0px)))",
+              height: "calc(100dvh - 4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+              maxHeight: "calc(100dvh - 4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+              // Mobile full-width, desktop keeps margins
               maxWidth: "calc(100vw - 1rem)",
-              marginBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0))',
-              marginRight: 'max(0.5rem, env(safe-area-inset-right, 0))',
+              marginLeft: "0",
+              marginRight: "0",
+              marginBottom: "0",
             }}
             data-testid="chat-widget-panel"
           >
@@ -454,26 +464,22 @@ export function AIChatWidget() {
         )}
       </AnimatePresence>
 
-      <motion.button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center z-[60] transition-colors touch-manipulation min-w-[56px] min-h-[56px] sm:min-w-[64px] sm:min-h-[64px] ${
-          isOpen ? "bg-slate-700 hover:bg-slate-600 active:bg-slate-800" : "bg-blue-500 hover:bg-blue-600 active:bg-blue-700"
-        }`}
-        style={{
-          bottom: 'max(1rem, calc(1rem + env(safe-area-inset-bottom, 0)))',
-          right: 'max(1rem, calc(1rem + env(safe-area-inset-right, 0)))',
-        }}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        data-testid="button-toggle-chat"
-        aria-label={isOpen ? "Close chat" : "Open chat"}
-      >
-        {isOpen ? (
-          <X className="w-6 h-6 sm:w-7 sm:h-7 text-white" aria-hidden="true" />
-        ) : (
+      {!isOpen && (
+        <motion.button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center z-[60] transition-colors touch-manipulation min-w-[56px] min-h-[56px] sm:min-w-[64px] sm:min-h-[64px] bg-blue-500 hover:bg-blue-600 active:bg-blue-700"
+          style={{
+            bottom: "max(1rem, calc(1rem + env(safe-area-inset-bottom, 0px)))",
+            right: "max(1rem, calc(1rem + env(safe-area-inset-right, 0px)))",
+          }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          data-testid="button-toggle-chat"
+          aria-label="Open chat"
+        >
           <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 text-white" aria-hidden="true" />
-        )}
-      </motion.button>
+        </motion.button>
+      )}
     </>
   );
 }
