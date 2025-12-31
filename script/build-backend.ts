@@ -16,7 +16,8 @@ import { existsSync } from "fs";
 // Server deps to bundle to reduce cold start times
 // Note: pg has native bindings and should NOT be bundled
 const allowlist = [
-  "bcrypt",
+  // NOTE: do NOT bundle native deps like bcrypt; keep them external so node-pre-gyp
+  // can resolve its package metadata/binaries correctly at runtime.
   "connect-pg-simple",
   "cors",
   "date-fns",
