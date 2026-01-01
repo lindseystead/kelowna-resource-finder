@@ -30,8 +30,31 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+function shouldRelaxTlsForDatabase(connectionString: string): boolean {
+  // Allow explicit override via env (recommended: set to "false" in Railway only if needed).
+  if (process.env.PGSSL_REJECT_UNAUTHORIZED === "false") return true;
+  if (process.env.PGSSL_REJECT_UNAUTHORIZED === "true") return false;
+
+  // Supabase pooler/direct endpoints sometimes surface TLS chain issues in certain runtimes.
+  // If the platform cannot validate the full chain, we relax validation rather than fail hard.
+  // This keeps encryption (TLS) but skips strict chain verification.
+  try {
+    const url = new URL(connectionString);
+    const host = url.hostname.toLowerCase();
+    return host.endsWith(".supabase.co") || host.endsWith(".pooler.supabase.com");
+  } catch {
+    return false;
+  }
+}
+
 // Connection pool - defaults to 10 connections which is fine for our scale
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl:
+    process.env.NODE_ENV === "production" && shouldRelaxTlsForDatabase(process.env.DATABASE_URL)
+      ? { rejectUnauthorized: false }
+      : undefined,
+});
 
 // Drizzle instance with schema - gives us type-safe queries
 export const db = drizzle(pool, { schema });
