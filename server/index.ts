@@ -94,14 +94,15 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Register authentication routes first
-  registerAuthRoutes(app);
+  try {
+    // Register authentication routes first
+    registerAuthRoutes(app);
 
-  // Register other routes
-  await registerRoutes(httpServer, app);
-  
-  // Register SEO routes (sitemap, robots.txt)
-  registerSEORoutes(app);
+    // Register other routes
+    await registerRoutes(httpServer, app);
+    
+    // Register SEO routes (sitemap, robots.txt)
+    registerSEORoutes(app);
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
@@ -144,8 +145,15 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(port, "0.0.0.0", () => {
-    log(`serving on port ${port}`);
-  });
+    const port = parseInt(process.env.PORT || "5000", 10);
+    httpServer.listen(port, "0.0.0.0", () => {
+      log(`serving on port ${port}`);
+    });
+  } catch (error) {
+    console.error("FATAL: Failed to start server:", error);
+    if (error instanceof Error) {
+      console.error("Error stack:", error.stack);
+    }
+    process.exit(1);
+  }
 })();
