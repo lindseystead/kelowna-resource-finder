@@ -155,6 +155,16 @@ VITE_API_URL=https://your-railway-app.railway.app
 
 Use your Railway backend URL from step above.
 
+**Optional:**
+
+```bash
+VITE_BASE_URL=https://helpkelowna.com
+```
+
+**Important**: 
+- Frontend variables must start with `VITE_` to be accessible in the browser
+- See `docs/ENV_VARIABLES.md` for complete environment variable guide
+
 ### 3. Deploy
 
 Vercel auto-deploys on push to main. Or click **Deploy**.

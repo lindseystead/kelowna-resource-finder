@@ -10,11 +10,12 @@
 import type { Express } from "express";
 import { storage } from "./storage";
 import { logger } from "./utils/logger";
+import { env } from "./config";
+
 export function registerSEORoutes(app: Express) {
   // Sitemap generation
   app.get("/sitemap.xml", async (req, res) => {
     try {
-      const { env } = await import("./config.js");
       const baseUrl = env.BASE_URL || "https://www.helpkelowna.com";
       const resources = await storage.getResources();
       const categories = await storage.getCategories();
