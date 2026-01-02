@@ -83,7 +83,7 @@ export function AIChatWidget() {
           
           // Check if CSRF token cookie was set
           if (res.ok) {
-            const token = getCsrfToken();
+            const token = await getCsrfToken();
             if (import.meta.env.DEV && token) {
               console.log("CSRF token initialized:", token.substring(0, 8) + "...");
             }
@@ -110,72 +110,98 @@ export function AIChatWidget() {
     }
   }, [isOpen, hasShownGreeting, messages.length, conversationId]);
 
-  const getCsrfToken = (): string | null => {
+  // Cache for CSRF token (since we can't read cross-origin cookies)
+  const [csrfTokenCache, setCsrfTokenCache] = useState<string | null>(null);
+
+  const getCsrfToken = async (): Promise<string | null> => {
+    // First try to read from cookie (works in same-origin)
     const cookies = document.cookie.split(';');
     for (const cookie of cookies) {
       const [name, value] = cookie.trim().split('=');
       if (name === 'XSRF-TOKEN') {
-        return decodeURIComponent(value);
+        const token = decodeURIComponent(value);
+        setCsrfTokenCache(token);
+        return token;
       }
     }
+    
+    // If not in cookie, try cache
+    if (csrfTokenCache) {
+      return csrfTokenCache;
+    }
+    
+    // If not in cache, fetch from API endpoint
+    try {
+      const res = await fetch(apiUrl("/api/csrf-token"), {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "Accept": "application/json",
+        },
+      });
+      
+      if (res.ok) {
+        const data = await res.json() as { csrfToken: string };
+        if (data.csrfToken) {
+          setCsrfTokenCache(data.csrfToken);
+          return data.csrfToken;
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch CSRF token:", error);
+    }
+    
     return null;
   };
 
   const startConversation = async () => {
     try {
-      // First, ensure we have a CSRF token by making a GET request if needed
-      let csrfToken = getCsrfToken();
+      // First, ensure we have a CSRF token
+      // For cross-origin requests, we can't read cookies from Railway domain,
+      // so we fetch the token from a dedicated endpoint
+      let csrfToken = await getCsrfToken();
       
-      // Always make a GET request first to ensure session and CSRF token are initialized
-      // This is critical for cross-origin requests (Vercel frontend + Railway backend)
-      try {
-        const initRes = await fetch(apiUrl("/api/conversations"), {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            "Accept": "application/json",
-          },
-        });
-        
-        if (!initRes.ok) {
-          console.error("Failed to initialize session:", initRes.status, initRes.statusText);
+      // If we still don't have a token, try initializing session first
+      if (!csrfToken) {
+        try {
+          // Make a GET request to initialize session
+          await fetch(apiUrl("/api/conversations"), {
+            method: "GET",
+            credentials: "include",
+            headers: {
+              "Accept": "application/json",
+            },
+          });
+          
+          // Wait a moment for session to be created
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Try to get token again
+          csrfToken = await getCsrfToken();
+        } catch (error) {
+          console.error("Failed to initialize session:", error);
         }
-        
-        // Wait a moment for cookie to be set and accessible
-        await new Promise(resolve => setTimeout(resolve, 200));
-        csrfToken = getCsrfToken();
-        
-        // Log for debugging (even in production for now to diagnose issues)
-        if (!csrfToken) {
-          console.warn("CSRF token not found after initialization. Cookies:", document.cookie);
-        } else {
-          if (import.meta.env.DEV) {
-            console.log("CSRF token found:", csrfToken.substring(0, 8) + "...");
-          }
-        }
-      } catch (error) {
-        console.error("Failed to initialize CSRF token:", error);
-        // Continue anyway - might still work if token was already set
       }
       
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (csrfToken) {
-        headers["x-csrf-token"] = csrfToken;
-      } else {
-        // Log warning - this will likely cause a 403
-        console.warn("No CSRF token available - request will likely fail with 403");
-        console.warn("Available cookies:", document.cookie);
-        console.warn("API URL:", apiUrl("/api/conversations"));
+      if (!csrfToken) {
+        throw new Error("Unable to obtain CSRF token. Please refresh the page and try again.");
       }
+      
+      const headers: Record<string, string> = { 
+        "Content-Type": "application/json",
+        "x-csrf-token": csrfToken,
+      };
       
       const url = apiUrl("/api/conversations");
       
       // Debug logging
-      console.log("Creating conversation:", {
-        url,
-        hasToken: !!csrfToken,
-        hasApiUrl: !!import.meta.env.VITE_API_URL,
-      });
+      if (import.meta.env.DEV) {
+        console.log("Creating conversation:", {
+          url,
+          hasToken: !!csrfToken,
+          hasApiUrl: !!import.meta.env.VITE_API_URL,
+        });
+      }
       
       const res = await fetch(url, {
         method: "POST",
@@ -196,7 +222,6 @@ export function AIChatWidget() {
           error: errorMsg,
           hasToken: !!csrfToken,
           hasApiUrl: !!import.meta.env.VITE_API_URL,
-          cookies: document.cookie,
         });
         
         // If CSRF error, provide helpful message
@@ -265,7 +290,7 @@ export function AIChatWidget() {
 
     try {
       // Ensure CSRF token is available - fetch it if missing
-      let csrfToken = getCsrfToken();
+      let csrfToken = await getCsrfToken();
       if (!csrfToken) {
         // Try to initialize CSRF token by making a GET request
         try {
@@ -273,16 +298,20 @@ export function AIChatWidget() {
             method: "GET",
             credentials: "include",
           });
-          csrfToken = getCsrfToken();
+          csrfToken = await getCsrfToken();
         } catch (error) {
           // Continue anyway - server might still accept the request
         }
       }
       
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (csrfToken) {
-        headers["x-csrf-token"] = csrfToken;
+      if (!csrfToken) {
+        throw new Error("Unable to obtain CSRF token. Please refresh the page and try again.");
       }
+      
+      const headers: Record<string, string> = { 
+        "Content-Type": "application/json",
+        "x-csrf-token": csrfToken,
+      };
       
       if (!convId) {
         throw new Error("Conversation ID is missing");

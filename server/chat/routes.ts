@@ -107,6 +107,22 @@ Remember: You are helping people who may be stressed or in crisis. Be calm, clea
  */
 export function registerChatRoutes(app: Express): void {
   /**
+   * GET /api/csrf-token
+   * Returns the CSRF token for the current session.
+   * This endpoint initializes the session and CSRF token if needed.
+   * Used by frontend to get the token when cookies aren't accessible cross-origin.
+   */
+  app.get("/api/csrf-token", asyncHandler(async (req: Request, res: Response) => {
+    // The csrfToken middleware should have already set the token
+    // Return it in the response body so frontend can read it
+    const token = req.session?.csrfToken || res.locals.csrfToken;
+    if (!token) {
+      return res.status(500).json({ error: "CSRF token not available" });
+    }
+    res.json({ csrfToken: token });
+  }));
+
+  /**
    * GET /api/conversations
    * Retrieves all chat conversations.
    * This endpoint also initializes the session and CSRF token on first request.
