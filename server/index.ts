@@ -156,6 +156,19 @@ app.use((req, res, next) => {
     const port = parseInt(process.env.PORT || "5000", 10);
     httpServer.listen(port, "0.0.0.0", () => {
       log(`serving on port ${port}`);
+      // Log that server is ready for health checks
+      log(`Health check available at http://0.0.0.0:${port}/health`);
+    });
+    
+    // Handle server errors gracefully
+    httpServer.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE") {
+        console.error(`Port ${port} is already in use`);
+        process.exit(1);
+      } else {
+        console.error("Server error:", error);
+        process.exit(1);
+      }
     });
   } catch (error) {
     console.error("FATAL: Failed to start server:", error);
