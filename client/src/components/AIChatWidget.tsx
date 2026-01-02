@@ -97,7 +97,14 @@ export function AIChatWidget() {
         headers["x-csrf-token"] = csrfToken;
       }
       
-      const res = await fetch(apiUrl("/api/conversations"), {
+      const url = apiUrl("/api/conversations");
+      
+      // Debug logging in development
+      if (import.meta.env.DEV) {
+        console.log("Creating conversation at:", url);
+      }
+      
+      const res = await fetch(url, {
         method: "POST",
         headers,
         body: JSON.stringify({ title: "Support Chat" }),
@@ -106,7 +113,22 @@ export function AIChatWidget() {
       
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}: ${res.statusText}` }));
-        throw new Error(errorData.error || `Failed to create conversation: ${res.statusText}`);
+        const errorMsg = errorData.error || `Failed to create conversation: ${res.statusText}`;
+        
+        // Log helpful error message
+        if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
+          console.error("Chat API error:", {
+            status: res.status,
+            statusText: res.statusText,
+            url,
+            error: errorMsg,
+            hint: !import.meta.env.VITE_API_URL 
+              ? "VITE_API_URL not set - check Vercel environment variables"
+              : "Check Railway backend is running and CORS is configured"
+          });
+        }
+        
+        throw new Error(errorMsg);
       }
       
       const data = await res.json();
@@ -118,7 +140,7 @@ export function AIChatWidget() {
       return data.id;
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env.DEV) {
         console.warn("Failed to start conversation:", errMsg);
       }
       throw error;

@@ -17,13 +17,26 @@
  * - Fallback: Relative URLs if env var not set
  */
 export function getApiBaseUrl(): string {
-  // In development or if no env var, use relative URLs
-  if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
+  // In development, use relative URLs
+  if (import.meta.env.DEV) {
     return "";
   }
   
-  // In production with env var, use Railway backend URL
-  return import.meta.env.VITE_API_URL.replace(/\/$/, ""); // Remove trailing slash
+  // In production, require VITE_API_URL
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (!apiUrl) {
+    // Log warning in console (only in browser, not during build)
+    if (typeof window !== 'undefined') {
+      console.error(
+        '⚠️ VITE_API_URL is not set! Chatbot and API calls will fail. ' +
+        'Set VITE_API_URL in Vercel environment variables to your Railway backend URL.'
+      );
+    }
+    return "";
+  }
+  
+  // Remove trailing slash
+  return apiUrl.replace(/\/$/, "");
 }
 
 /**
