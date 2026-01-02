@@ -90,21 +90,39 @@ export function AIChatWidget() {
   };
 
   const startConversation = async () => {
-    const csrfToken = getCsrfToken();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (csrfToken) {
-      headers["x-csrf-token"] = csrfToken;
+    try {
+      const csrfToken = getCsrfToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (csrfToken) {
+        headers["x-csrf-token"] = csrfToken;
+      }
+      
+      const res = await fetch(apiUrl("/api/conversations"), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ title: "Support Chat" }),
+        credentials: "include",
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}: ${res.statusText}` }));
+        throw new Error(errorData.error || `Failed to create conversation: ${res.statusText}`);
+      }
+      
+      const data = await res.json();
+      if (!data.id) {
+        throw new Error("Invalid response from server: missing conversation ID");
+      }
+      
+      setConversationId(data.id);
+      return data.id;
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn("Failed to start conversation:", errMsg);
+      }
+      throw error;
     }
-    
-    const res = await fetch(apiUrl("/api/conversations"), {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ title: "Support Chat" }),
-      credentials: "include",
-    });
-    const data = await res.json();
-    setConversationId(data.id);
-    return data.id;
   };
 
   const sendMessage = async () => {
@@ -233,12 +251,10 @@ export function AIChatWidget() {
         }
       }
     } catch (error: unknown) {
-      // Error handling - errors are already handled by UI state updates above
-      // No need to log to console in production to avoid information leakage
-      // In development, errors are visible in React DevTools
-      if (process.env.NODE_ENV === 'development' && error instanceof Error) {
-        // Use console.warn instead of console.error for less critical errors
-        console.warn("Chat message error:", error.message);
+      // Log error for debugging (even in production, but only to console)
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn("Chat message error:", errorMessage);
       }
       
       // Only update state if component is still mounted
@@ -248,7 +264,20 @@ export function AIChatWidget() {
       }
       
       // Show user-friendly error message
-      const errorMessage = error instanceof Error ? error.message : "Failed to send message";
+      const errorDisplayMessage = errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')
+        ? "Unable to connect to the chat service. Please check your internet connection and try again."
+        : errorMessage.includes('CSRF') || errorMessage.includes('csrf')
+        ? "Security token expired. Please refresh the page and try again."
+        : "Sorry, something went wrong. Please try again.";
+      
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          role: "assistant",
+          content: errorDisplayMessage,
+        },
+      ]);
       
       // Try to get generic resources from database as fallback
       try {
