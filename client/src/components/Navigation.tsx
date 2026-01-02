@@ -116,7 +116,9 @@ export function Navigation() {
                   href={link.href}
                   onClick={() => setIsOpen(false)}
                   className={cn(
-                    "flex px-4 py-3 rounded-lg text-base font-medium transition-colors min-h-[44px] items-center gap-2 touch-manipulation",
+                    "flex px-4 py-3 rounded-lg text-base font-medium transition-all duration-150 min-h-[44px] items-center gap-2 touch-manipulation",
+                    "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2",
+                    "active:scale-[0.98]",
                     location === link.href
                       ? "bg-primary/10 text-primary"
                       : "text-gray-600 hover:bg-gray-50 active:bg-gray-100 hover:text-gray-900"

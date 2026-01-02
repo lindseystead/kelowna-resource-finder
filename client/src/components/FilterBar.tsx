@@ -40,7 +40,7 @@ export function FilterBar({ filters, onFilterChange, showLocationFilter = true, 
           variant={filters.openNow ? "default" : "outline"}
           size="sm"
           onClick={() => onFilterChange({ ...filters, openNow: !filters.openNow })}
-          className="gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
+          className="gap-1.5 min-h-[44px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
           data-testid="filter-open-now"
           aria-label={filters.openNow ? "Remove open now filter" : "Filter by open now"}
         >
@@ -52,7 +52,7 @@ export function FilterBar({ filters, onFilterChange, showLocationFilter = true, 
           variant={filters.verified ? "default" : "outline"}
           size="sm"
           onClick={() => onFilterChange({ ...filters, verified: !filters.verified })}
-          className="gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
+          className="gap-1.5 min-h-[44px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
           data-testid="filter-verified"
           aria-label={filters.verified ? "Remove verified filter" : "Filter by verified only"}
         >
@@ -65,7 +65,7 @@ export function FilterBar({ filters, onFilterChange, showLocationFilter = true, 
           variant={filters.freeServices ? "default" : "outline"}
           size="sm"
           onClick={() => onFilterChange({ ...filters, freeServices: !filters.freeServices })}
-          className="gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
+          className="gap-1.5 min-h-[44px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
           data-testid="filter-free"
           aria-label={filters.freeServices ? "Remove free services filter" : "Filter by free services"}
         >
@@ -78,7 +78,7 @@ export function FilterBar({ filters, onFilterChange, showLocationFilter = true, 
             variant={filters.nearby ? "default" : "outline"}
             size="sm"
             onClick={() => onFilterChange({ ...filters, nearby: !filters.nearby })}
-            className="gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
+            className="gap-1.5 min-h-[44px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
             data-testid="filter-nearby"
             aria-label={filters.nearby ? "Remove nearby filter" : "Filter by nearby resources"}
           >
@@ -92,7 +92,7 @@ export function FilterBar({ filters, onFilterChange, showLocationFilter = true, 
             variant={filters.westKelowna ? "default" : "outline"}
             size="sm"
             onClick={() => onFilterChange({ ...filters, westKelowna: !filters.westKelowna })}
-            className="gap-1.5 min-h-[44px] sm:min-h-[36px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
+            className="gap-1.5 min-h-[44px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
             data-testid="filter-west-kelowna"
             aria-label={filters.westKelowna ? "Remove West Kelowna filter" : "Filter by West Kelowna"}
           >
@@ -107,7 +107,7 @@ export function FilterBar({ filters, onFilterChange, showLocationFilter = true, 
             variant="ghost"
             size="sm"
             onClick={clearFilters}
-            className="gap-1 text-gray-500 min-h-[44px] sm:min-h-[36px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
+            className="gap-1 text-gray-500 min-h-[44px] px-3 sm:px-2.5 touch-manipulation text-xs sm:text-sm"
             data-testid="filter-clear"
             aria-label={`Clear ${activeCount} active filter${activeCount > 1 ? 's' : ''}`}
           >

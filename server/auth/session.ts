@@ -24,10 +24,9 @@ const PgSessionStore = PgSession(session);
 
 export const sessionMiddleware = session({
   store: new PgSessionStore({
-    // Type assertion needed due to connect-pg-simple type incompatibility with pg Pool
-    // The pool is compatible at runtime, but TypeScript types don't align perfectly
-    // Type assertion needed due to connect-pg-simple type incompatibility with pg Pool
-    // The pool is compatible at runtime, but TypeScript types don't align perfectly
+    // Type assertion needed due to connect-pg-simple type incompatibility with pg Pool.
+    // The pool is compatible at runtime, but TypeScript types don't align perfectly.
+    // This is a known limitation of the connect-pg-simple library's type definitions.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pool: pool as any,
     tableName: "user_sessions", // Custom table name

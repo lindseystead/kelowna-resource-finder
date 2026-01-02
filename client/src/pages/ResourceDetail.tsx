@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { apiUrl } from "@/lib/api";
 import { motion } from "framer-motion";
+import { generateResourceEmailLinkSync } from "@/lib/email-templates";
 import { isOpenNow } from "@/lib/hours";
 import { useCurrentTime } from "@/hooks/use-current-time";
 import { useUserLocation } from "@/hooks/use-location";
@@ -306,7 +307,7 @@ export default function ResourceDetail() {
                           <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-gray-900 text-xs sm:text-sm uppercase tracking-wide mb-1">Email</h3>
                             <a 
-                              href={`mailto:${resource.email}?subject=Inquiry about ${encodeURIComponent(resource.name)} - Kelowna Aid&body=Hello ${encodeURIComponent(resource.name)},%0D%0A%0D%0AI found your organization on Kelowna Aid (https://kelownaaid.ca) and I would like to learn more about your services.%0D%0A%0D%0A[Please share any specific questions or information you need here]%0D%0A%0D%0AThank you for the important work you do in our community.%0D%0A%0D%0ABest regards,%0D%0A[Your name]%0D%0A[Your phone number - optional]`}
+                              href={generateResourceEmailLinkSync(resource.name, resource.email)}
                               className="text-sm sm:text-base text-primary hover:underline break-all"
                               aria-label={`Send email to ${resource.name}`}
                             >

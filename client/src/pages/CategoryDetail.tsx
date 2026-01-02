@@ -1,5 +1,6 @@
 import { useCategory, useResources } from "@/hooks/use-resources";
 import { ResourceCard } from "@/components/ResourceCard";
+import { ResourceCardSkeleton } from "@/components/ResourceCardSkeleton";
 import { Navigation } from "@/components/Navigation";
 import { FilterBar } from "@/components/FilterBar";
 import { ShelterDashboard } from "@/components/ShelterDashboard";
@@ -134,8 +135,12 @@ export default function CategoryDetail() {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <Navigation />
-        <div className="flex-1 flex justify-center items-center py-12">
-          <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-primary animate-spin" aria-label="Loading category" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 md:py-12 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+            {[...Array(6)].map((_, i) => (
+              <ResourceCardSkeleton key={i} />
+            ))}
+          </div>
         </div>
       </div>
     );

@@ -6,23 +6,17 @@
 ![React](https://img.shields.io/badge/React-18.3-blue.svg)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-12+-blue.svg)
 
-A production-ready civic tech platform that centralizes 320+ fragmented community resources into a single, crisis-optimized search experience for Kelowna and West Kelowna, BC.
+A civic tech platform that centralizes ~320 community resources into a single searchable directory for Kelowna and West Kelowna, BC.
 
-## 🎯 Problem & Solution
+## Problem & Solution
 
 **The Problem:** When people need help—whether it's food support, shelter, mental health services, or crisis assistance—finding reliable, up-to-date information can be overwhelming. Existing resources are scattered across multiple websites, phone directories, and social media posts, making it difficult to find what you need quickly, especially during a crisis.
 
-**The Solution:** Help Kelowna centralizes 320+ verified community resources in a single, searchable database. The application provides:
+**The Solution:** Help Kelowna centralizes ~320 verified community resources in a single searchable database. Search, browse by category, view on a map, or use the chatbot to find what you need. Community can submit updates to keep information current.
 
-- **Fast, intelligent search** that prioritizes relevant results and filters out irrelevant content
-- **Crisis-optimized UX** designed for users who may be experiencing stress or urgency
-- **Multiple access methods**: category browsing, map view, AI chatbot assistance, and direct search
-- **Community-driven updates** to keep information current
-- **Mobile-first design** accessible on any device
+This project was built by manually aggregating hundreds of disparate sources into a single source of truth.
 
-This project was built by manually aggregating hundreds of disparate sources into a single source of truth—work typically done by municipalities, not individuals.
-
-## 📸 Screenshots
+## Screenshots
 
 <div align="center">
 
@@ -49,97 +43,60 @@ This project was built by manually aggregating hundreds of disparate sources int
 
 </div>
 
-## ✨ Features
+## Features
 
 ### Core Functionality
 
-- **320+ Resources**: Comprehensive database of local services including food banks, shelters, health services, legal aid, crisis support, and community resources
-- **Intelligent Search**: Smart search algorithm that prioritizes exact matches, filters crisis resources appropriately, and handles partial matches
-- **Category Browsing**: Organized by 15+ categories (Food Banks, Shelters, Health Services, Crisis Support, Legal Aid, etc.)
-- **Interactive Map**: Leaflet-based map view showing resource locations with distance calculations
-- **Resource Details**: Comprehensive pages with hours, contact info, eligibility requirements, and location data
+Search, browse by category, or view resources on a map. Each resource page includes hours, contact info, and location. Search prioritizes exact matches and handles partial queries. Resources are organized into ~15 categories (food banks, shelters, health services, crisis support, legal aid, etc.).
 
 ### Advanced Features
 
-- **AI Chatbot**: State-aware conversational assistant with intelligent resource matching:
-  - **State Management**: Tracks intent, urgency, location, and permission to provide contextually appropriate responses
-  - **One Question at a Time**: Structured conversation flow that asks permission first, then location, then provides resources
-  - **Urgency Detection**: Prioritizes immediate options (24/7 fridges, meal programs) over planning resources (food banks)
-  - **Age-Appropriate**: Filters out youth-only resources for adults and vice versa
-  - **Crisis Support**: Special handling for suicidal/self-harm situations - always asks permission first before offering resources
-  - **Live Shelter Data**: Directs users to City of Kelowna Shelter Dashboard for real-time availability
-- **Favorites System**: Save frequently accessed resources for quick reference
-- **Update Requests**: Community-driven system for submitting resource information updates
-- **Admin Panel**: Full admin interface for managing resources, categories, and update requests
-- **Authentication**: Secure session-based auth with CSRF protection
-- **Email Notifications**: Automated email system for update requests and admin notifications
+AI chatbot helps users find resources through conversation. It tracks conversation state (intent, urgency, location) and asks one question at a time. For urgent needs like "hungry now", it prioritizes immediate options (24/7 fridges, meal programs) over appointment-based services. Filters youth-only resources for adults. Special handling for crisis situations - always asks permission first.
 
-### User Experience
+Users can save favorites, submit update requests, and admins can manage everything through the admin panel. Session-based auth with CSRF protection. Email notifications for update requests.
 
-- **Crisis-Optimized UX**: Calm, minimal interface designed for users in distress
-- **Mobile Responsive**: Fully responsive design optimized for all screen sizes
-- **Accessibility**: WCAG-compliant components with proper ARIA labels and keyboard navigation
-- **SEO Optimized**: Structured data, sitemap generation, and meta tag management
-- **Performance**: Fast load times with optimized queries, caching, and code splitting
 
-### Technical Features
-
-- **Type Safety**: Full TypeScript coverage across frontend and backend
-- **Test Suite**: Comprehensive Vitest test coverage for critical paths
-- **Production Ready**: Split deployment configuration (Vercel frontend, Railway/Render backend)
-- **Security**: Rate limiting, Helmet.js security headers, CSRF protection, input validation
-- **Database**: PostgreSQL with Drizzle ORM, optimized indexes, and migration system
-- **Many-to-Many Categories**: Resources can belong to multiple categories (e.g., a youth shelter appears in both "shelters" and "youth" categories) using a normalized junction table design
-
-## 🏗️ What Was Built
-
-This is a full-stack application built from scratch with the following components:
+## What Was Built
 
 ### Frontend (React + TypeScript)
 
-- **13 Page Components**: Home, Categories, Category Detail, Resource Detail, Search Results, Favorites, Map View, About, Disclaimer, Admin, Request Update, Featured, Official Resources, 404
-- **20+ Reusable Components**: SearchBar, FilterBar, Navigation, Footer, AIChatWidget, ResourceCard, CategoryCard, CrisisHotlines, EmergencyFoodInfo, ShelterDashboard, and more
+14 page components, ~22 reusable components (SearchBar, FilterBar, Navigation, AIChatWidget, ResourceCard, etc.)
 - **Custom Hooks**: use-resources, use-favorites, use-location, use-current-time, use-mobile
 - **Utility Libraries**: Hours parsing (IANA timezone support), distance calculations (Haversine formula), API client, query client with React Query
 - **UI Component Library**: Custom-built component system with Radix UI primitives and Tailwind CSS
 
 ### Backend (Express + TypeScript)
 
-- **RESTful API**: 15+ endpoints for resources, categories, update requests, chat, authentication, and admin functions
-- **Data Access Layer**: Repository pattern with Drizzle ORM for type-safe database queries
-  - **Many-to-Many Categories**: Resources can belong to multiple categories via a normalized `resource_categories` junction table. This follows industry-standard database normalization practices and ensures resources appear in all relevant categories (e.g., a youth shelter appears in both "shelters" and "youth" categories). The design includes composite primary keys, CASCADE deletes for referential integrity, and optimized indexes on both foreign keys.
+RESTful API with ~23 endpoints. Repository pattern for data access. Many-to-many categories via junction table (composite primary key, CASCADE deletes).
 - **Authentication System**: Session-based auth with Passport.js, CSRF protection, and secure password hashing
 - **AI Chat Integration**: Server-sent events (SSE) for streaming chat responses with OpenAI API
   - **Conversation State Machine**: Tracks intent (food, shelter, health, crisis, legal, youth), urgency (immediate, soon, general), permission status, and location
-  - **Intelligent Resource Prioritization**: For urgent requests, prioritizes immediate options (24/7 access, hot meals) over appointment-based services
-  - **Age Filtering**: Automatically filters youth-only resources for adult users
-  - **Crisis Handling**: Special permission-first flow for suicidal/self-harm situations
-  - **Live Data Integration**: References City of Kelowna Shelter Dashboard for real-time shelter availability
+  - Prioritizes immediate options (24/7 access, hot meals) over appointment-based services
+  - Filters youth-only resources for adult users
+  - Special permission-first flow for crisis situations
+  - References City of Kelowna Shelter Dashboard for real-time availability
 - **Email System**: Nodemailer integration with SMTP configuration for notifications
 - **Security Middleware**: Rate limiting, Helmet.js, CORS configuration, input validation
 - **SEO Routes**: Sitemap generation, structured data endpoints
 
 ### Database & Infrastructure
 
-- **PostgreSQL Schema**: 7+ tables (resources, categories, resource_categories junction table, update_requests, users, conversations, messages) with proper relationships and many-to-many support
-- **Database Migrations**: SQL migration system for indexes, constraints, and schema updates
-- **Auto-Seeding**: Automatic database seeding with 320+ resources on first run
-- **Performance Optimization**: Strategic indexes for search, category filtering, and location queries
+PostgreSQL with ~7 tables. SQL migrations for schema changes. Auto-seeds with ~320 resources on first run. Indexes on frequently queried fields.
 
 ### DevOps & Testing
 
 - **Build System**: Separate build scripts for frontend (Vite) and backend (Esbuild)
 - **Test Suite**: Vitest test coverage for storage layer, API routes, and utilities
 - **Deployment Configuration**: Vercel config for frontend, Railway/Render setup for backend
-- **Environment Management**: Comprehensive environment variable validation and configuration
+- **Environment Management**: Environment variable validation
 
 ### Documentation
 
-- **API Documentation**: Complete endpoint reference with request/response schemas
-- **Architecture Documentation**: System design, project structure, and design decisions
-- **Deployment Guide**: Step-by-step instructions for free hosting (Supabase, Neon, Render, Railway, Vercel)
+- **API Documentation**: Endpoint reference with request/response schemas
+- **Architecture Documentation**: System design and design decisions
+- **Deployment Guide**: Instructions for hosting (Supabase, Neon, Render, Railway, Vercel)
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 
@@ -171,13 +128,13 @@ This is a full-stack application built from scratch with the following component
 - **TypeScript** - Static type checking
 - **ESLint** - Code linting (implicit)
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Node.js 18+
 - PostgreSQL 12+
 - npm or yarn
 
-## 🏃 Getting Started
+## Getting Started
 
 ### Quick Setup
 
@@ -215,7 +172,7 @@ The app will be available at `http://localhost:5000`. Database seeds automatical
 
 **For detailed setup instructions, see [SETUP.md](SETUP.md)**
 
-## 📁 Project Structure
+## Project Structure
 
 ```text
 ├── client/              # React frontend
@@ -251,7 +208,7 @@ The app will be available at `http://localhost:5000`. Database seeds automatical
 └── screenshots/       # Screenshots for README
 ```
 
-## 📜 Available Scripts
+## Available Scripts
 
 | Command | Description |
 | :------ | :---------- |
@@ -266,7 +223,7 @@ The app will be available at `http://localhost:5000`. Database seeds automatical
 | `npm run check` | TypeScript type checking |
 | `npm run db:push` | Push database schema changes |
 
-## 🔧 Environment Variables
+## Environment Variables
 
 ### Required
 
@@ -276,15 +233,24 @@ The app will be available at `http://localhost:5000`. Database seeds automatical
 ### Optional
 
 - `OPENAI_API_KEY` - AI chatbot feature
+- `OPENAI_BASE_URL` - OpenAI API base URL (for proxies)
+- `BASE_URL` - Base URL for SEO and email links
+- `ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins
+- `SUPPORT_EMAIL` - Contact email address
 - `SMTP_HOST` - Email server host
 - `SMTP_PORT` - Email server port
 - `SMTP_USER` - Email username
 - `SMTP_PASS` - Email password
-- `SUPPORT_EMAIL` - Contact email address
+- `SMTP_FROM` - Email from address
+
+### Frontend Environment Variables (Vercel)
+
+- `VITE_API_URL` - Backend API URL (e.g., `https://your-app.railway.app`)
+- `VITE_BASE_URL` - Frontend base URL (e.g., `https://helpkelowna.com`)
 
 See `.env.example` for full configuration.
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Run all tests
@@ -304,33 +270,29 @@ Test coverage includes:
 - API routes (endpoints and responses)
 - Utility functions (hours parsing, distance calculations, email validation)
 
-## 📚 Documentation
+## Documentation
 
-Comprehensive documentation is available in the `docs/` directory:
+- **[API Reference](docs/API.md)** - API endpoints with request/response schemas
+- **[Architecture](docs/ARCHITECTURE.md)** - System design and design decisions
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Deployment instructions
 
-- **[API Reference](docs/API.md)** - Complete API endpoint documentation with request/response schemas, authentication details, and rate limiting information
-- **[Architecture](docs/ARCHITECTURE.md)** - System design overview, project structure, design decisions, and technical implementation details
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Step-by-step deployment instructions for free hosting options (Supabase, Neon, Render, Railway, Vercel) with cost comparisons and troubleshooting
+## Deployment
 
-## 🚢 Deployment
+Split deployment: frontend on Vercel, backend on Railway/Render, database on Supabase/Neon.
 
-This project supports split deployment for optimal performance and cost:
+See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for details.
 
-- **Frontend**: Deploy to [Vercel](https://vercel.com) (free tier available)
-- **Backend**: Deploy to [Railway](https://railway.app) or [Render](https://render.com) (free tiers available)
-- **Database**: Use [Supabase](https://supabase.com) or [Neon](https://neon.tech) (free tiers available)
+## Technical Decisions
 
-See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed step-by-step instructions, environment variable configuration, and troubleshooting tips.
+Some tradeoffs worth noting:
 
-## 🔬 Technical Deep Dive
-
-This section highlights key technical decisions and patterns that demonstrate production-ready architecture:
+**Search vs. Full-Text Search**: The search uses simple ILIKE queries with relevance scoring rather than PostgreSQL full-text search. This was a deliberate choice - FTS would be more powerful but requires maintaining search indexes, handling stop words, and dealing with stemming quirks. For ~320 resources, the simple approach is fast enough and easier to reason about. If we scale to thousands of resources, FTS would be worth the complexity.
 
 ### Architecture Patterns
 
-**Repository Pattern** - The `IStorage` interface abstracts database access, making the codebase testable and maintainable. All database queries go through the storage layer, not directly in routes.
+**Repository Pattern** - `IStorage` interface abstracts database access. All queries go through the storage layer.
 
-**Shared Type System** - TypeScript types are shared between frontend and backend via the `shared/` directory, ensuring API contracts are type-safe end-to-end. Changes to schemas are caught at compile time.
+**Shared Type System** - TypeScript types shared between frontend and backend via `shared/` directory. Schema changes caught at compile time.
 
 **Error Handling Strategy** - Custom `AppError` class with centralized error middleware. The `asyncHandler` wrapper eliminates try-catch boilerplate while ensuring all async errors are caught.
 
@@ -350,20 +312,15 @@ This section highlights key technical decisions and patterns that demonstrate pr
 
 **Timezone Handling** - Business hours parsing uses the browser's IANA timezone database (`America/Vancouver`) with `Intl.DateTimeFormat` API. Automatically handles DST transitions (PST ↔ PDT) without manual date calculations.
 
-**Search Algorithm** - Multi-tier search prioritization:
-
-1. Exact name matches first
-2. Partial name matches second  
-3. Description matches third
-4. Intelligent filtering of crisis resources based on search intent
+**Search Algorithm** - Prioritizes exact name matches, then partial matches, then description matches. Filters crisis resources based on search intent.
 
 **Distance Calculations** - Haversine formula for accurate geospatial distance calculations between user location and resources.
 
 ### Performance Optimizations
 
-**Database Indexing** - Strategic indexes on frequently queried fields (`category_id`, `slug`, searchable text fields) for sub-100ms query times.
+**Database Indexing** - Indexes on frequently queried fields (`category_id`, `slug`, searchable text fields).
 
-**Connection Pooling** - PostgreSQL connection pool (20 connections) prevents connection exhaustion under load.
+**Connection Pooling** - Default pool size (10 connections). Could increase for higher load, but 10 is sufficient for current scale.
 
 **React Query Caching** - Server state management with automatic caching, background refetching, and optimistic updates.
 
@@ -371,43 +328,30 @@ This section highlights key technical decisions and patterns that demonstrate pr
 
 ### Code Quality
 
-**Type Safety** - 100% TypeScript coverage. No `any` types. Strict mode enabled.
+**Type Safety** - TypeScript coverage with strict mode enabled. Minimal `any` usage limited to error handling and type compatibility workarounds.
 
 **Test Coverage** - Vitest test suite covering storage layer, API routes, and utility functions. Tests use real implementations (no excessive mocking).
 
 **Documentation** - JSDoc comments explain architectural decisions, security considerations, and complex logic (see `server/storage.ts`, `server/auth/csrf.ts`, `client/src/lib/hours.ts`).
 
-**Design System** - Documented design system (`client/src/lib/design-system.md`) with spacing scale, typography, and component guidelines for consistency.
+**Design System** - Documented design system (`docs/DESIGN_SYSTEM.md`) with spacing scale, typography, touch targets, and component guidelines for consistency.
 
 ### Deployment Architecture
 
-**Split Deployment** - Frontend and backend deploy separately for optimal performance and cost. Frontend on CDN (Vercel), backend on compute (Railway/Render).
+**Split Deployment** - Frontend and backend deploy separately. Frontend on Vercel, backend on Railway/Render.
 
-**Environment Configuration** - Comprehensive environment variable validation with clear error messages for missing required config.
+**Environment Configuration** - Environment variable validation with clear error messages.
 
-**Build Optimization** - Esbuild for fast backend builds (< 5s), Vite for optimized frontend bundles with tree-shaking.
+**Build Optimization** - Esbuild for backend builds, Vite for frontend bundles.
 
-## 📊 Project Statistics
+## Project Stats
 
-- **Lines of Code**: ~15,000+ (TypeScript/TSX)
-- **Components**: 20+ reusable React components
-- **Pages**: 13 full page components
-- **API Endpoints**: 15+ RESTful endpoints
-- **Database Tables**: 7 tables with relationships (including many-to-many junction table)
-- **Resources**: 320+ community resources
-- **Test Coverage**: Critical paths covered with Vitest
-- **Build Time**: < 30 seconds for full production build
+~15k lines of TypeScript/TSX, 14 pages, ~22 components, ~23 API endpoints, 7 database tables, ~320 resources. Critical paths tested. Build takes ~30 seconds.
 
-## 📝 License
+## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## 👤 Author
+## Author
 
-**Lindsey** - Lifesaver Technology Services
-
----
-
-<div align="center">
-Made with ❤️ for the Kelowna and West Kelowna communities
-</div>
+Lindsey - Lifesaver Technology Services

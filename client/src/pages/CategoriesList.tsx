@@ -9,6 +9,7 @@
 
 import { useCategories } from "@/hooks/use-resources";
 import { CategoryCard } from "@/components/CategoryCard";
+import { CategoryCardSkeleton } from "@/components/CategoryCardSkeleton";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Loader2 } from "lucide-react";

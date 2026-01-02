@@ -27,7 +27,9 @@ export function SEOHead({
   description = "Find free community support services in Kelowna and West Kelowna. Food support, shelters, mental health, crisis support, holiday help, and more. Your local resource directory for people in need.",
   keywords = "help kelowna, kelowna resources, free help kelowna, food bank kelowna, shelter kelowna, crisis support kelowna, mental health kelowna, community services kelowna, west kelowna resources, emergency help kelowna, social services kelowna",
   image = "/og-image.png",
-  url = typeof window !== "undefined" ? window.location.href : "https://helpkelowna.com",
+  url = typeof window !== "undefined" 
+    ? window.location.href 
+    : (import.meta.env.VITE_BASE_URL || "https://helpkelowna.com"),
   type = "website",
 }: SEOHeadProps) {
   useEffect(() => {

@@ -14,7 +14,8 @@ export function registerSEORoutes(app: Express) {
   // Sitemap generation
   app.get("/sitemap.xml", async (req, res) => {
     try {
-      const baseUrl = process.env.BASE_URL || "https://helpkelowna.com";
+      const { env } = await import("./config.js");
+      const baseUrl = env.BASE_URL || "https://helpkelowna.com";
       const resources = await storage.getResources();
       const categories = await storage.getCategories();
 

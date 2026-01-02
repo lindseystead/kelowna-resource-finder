@@ -14,6 +14,8 @@
 import { db } from "./db";
 import { categories, resources, resourceCategories, updateRequests, type Category, type Resource, type InsertCategory, type InsertResource, type UpdateRequest, type InsertUpdateRequest, type InsertResourceCategory } from "@shared/schema";
 import { eq, ilike, or, and, desc, inArray, type SQL } from "drizzle-orm";
+import { logger } from "./utils/logger";
+import { env } from "./config";
 
 export interface IStorage {
   // Categories
@@ -52,13 +54,8 @@ export class DatabaseStorage implements IStorage {
   async getResources(options?: { categoryId?: number; search?: string; name?: string }): Promise<Resource[]> {
     const conditions: SQL[] = [];
 
-    // Build up conditions based on what filters are provided
-    // Drizzle handles parameterization automatically so we're safe from SQL injection
-    
-    // For category filtering, use the many-to-many junction table
-    // This allows resources to appear in multiple categories
+    // Category filtering uses junction table for many-to-many
     if (options?.categoryId) {
-      // Get all resource IDs that belong to this category via junction table
       const resourceIdsInCategory = await db
         .select({ resourceId: resourceCategories.resourceId })
         .from(resourceCategories)
@@ -66,8 +63,7 @@ export class DatabaseStorage implements IStorage {
       
       const ids = resourceIdsInCategory.map(r => r.resourceId);
       
-      // Fallback: Also check legacy categoryId for backward compatibility during migration
-      // This ensures resources without junction table entries still work
+      // Fallback for legacy categoryId during migration
       const legacyResources = await db
         .select({ id: resources.id })
         .from(resources)
@@ -79,7 +75,6 @@ export class DatabaseStorage implements IStorage {
       if (allIds.length > 0) {
         conditions.push(inArray(resources.id, allIds));
       } else {
-        // No resources in this category, return empty array
         return [];
       }
     }
@@ -89,7 +84,6 @@ export class DatabaseStorage implements IStorage {
     }
 
     // For search, we'll get all resources and then score/rank them intelligently
-    // This allows for more sophisticated relevance scoring
     let results: Resource[];
     if (conditions.length === 0) {
       results = await db.select().from(resources);
@@ -119,6 +113,17 @@ export class DatabaseStorage implements IStorage {
       // If no valid words after cleaning, return empty
       if (searchWords.length === 0) {
         return [];
+      }
+
+      // Dev-only logging to diagnose search issues
+      if (env.NODE_ENV === "development") {
+        logger.debug("Search query processed", {
+          rawQuery,
+          cleanedQuery,
+          searchLower,
+          searchWords,
+          totalResources: results.length,
+        });
       }
 
       // Get the crisis category ID to exclude crisis resources from non-crisis searches
@@ -240,9 +245,11 @@ export class DatabaseStorage implements IStorage {
           }
         });
 
-        // Penalty if no words match at all
+        // Only penalize if no words match at all
+        // Note: nameWordMatches and descWordMatches already check for word inclusion,
+        // so if they're both 0, there's truly no match
         if (nameWordMatches === 0 && descWordMatches === 0) {
-          score = -500; // Heavily penalize no matches
+          score = -1000; // Heavily penalize no matches (will be filtered out)
         }
 
         // Bonus for verified resources
@@ -252,7 +259,12 @@ export class DatabaseStorage implements IStorage {
 
         return { resource, score };
       })
-      .filter(item => item.score > 0) // Only return results with positive scores
+      .filter(item => {
+        // Only filter out crisis resources (score -1000) and results with no matches
+        // Keep all other results, even with low scores, to ensure partial matches show up
+        // Changed from `item.score > 0` to `item.score > -500` to be less aggressive
+        return item.score > -500;
+      })
       .sort((a, b) => {
         // Sort by score (highest first)
         if (b.score !== a.score) {
@@ -262,6 +274,16 @@ export class DatabaseStorage implements IStorage {
         return a.resource.name.localeCompare(b.resource.name);
       })
       .map(item => item.resource);
+
+      // Dev-only logging to diagnose search results
+      if (env.NODE_ENV === "development") {
+        logger.debug("Search results", {
+          query: searchLower,
+          totalResults: results.length,
+          scoredResults: scoredResults.length,
+          sampleResults: scoredResults.slice(0, 3).map(r => ({ id: r.id, name: r.name })),
+        });
+      }
 
       return scoredResults;
     }
@@ -286,10 +308,11 @@ export class DatabaseStorage implements IStorage {
       // Insert with conflict handling - composite primary key prevents duplicates
       try {
         await db.insert(resourceCategories).values(junctionEntries);
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Ignore duplicate key errors (composite primary key violation)
-        // This is safe because the primary key constraint prevents duplicates
-        if (!error?.code || error.code !== '23505') { // 23505 = unique_violation in PostgreSQL
+        // PostgreSQL error code 23505 = unique_violation
+        const pgError = error as { code?: string };
+        if (!pgError.code || pgError.code !== '23505') {
           throw error;
         }
       }
@@ -300,9 +323,10 @@ export class DatabaseStorage implements IStorage {
           resourceId: resource.id,
           categoryId: insertResource.categoryId,
         });
-      } catch (error: any) {
-        // Ignore duplicate key errors
-        if (!error?.code || error.code !== '23505') {
+      } catch (error: unknown) {
+        // Ignore duplicate key errors (PostgreSQL error code 23505 = unique_violation)
+        const pgError = error as { code?: string };
+        if (!pgError.code || pgError.code !== '23505') {
           throw error;
         }
       }
@@ -337,9 +361,11 @@ export class DatabaseStorage implements IStorage {
       }));
       try {
         await db.insert(resourceCategories).values(entries);
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Ignore duplicate key errors (shouldn't happen after delete, but safe to handle)
-        if (!error?.code || error.code !== '23505') {
+        // PostgreSQL error code 23505 = unique_violation
+        const pgError = error as { code?: string };
+        if (!pgError.code || pgError.code !== '23505') {
           throw error;
         }
       }

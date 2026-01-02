@@ -1,41 +1,66 @@
 # Dependencies
-node_modules
+node_modules/
+.pnp
+.pnp.js
 
 # Build outputs
-dist
-build
+dist/
+build/
+*.tsbuildinfo
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
+.env.test
 
 # IDE
 .DS_Store
-.vscode
-.idea
+.vscode/
+.idea/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
 
 # Logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
 # OS
 .DS_Store
 Thumbs.db
+Desktop.ini
 
 # Temporary files
 *.tmp
 *.temp
 vite.config.ts.*
 *.tar.gz
-server/public
+*.zip
+
+# Server
+server/public/
 
 # Test coverage
 coverage/
 .nyc_output/
 test-results/
 *.lcov
+.nyc_output/
+
+# Railway
+.railway/
+
+# Vercel
+.vercel/
+
+# Misc
+*.pem
+.cache/

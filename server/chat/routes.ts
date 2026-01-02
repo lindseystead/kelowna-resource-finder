@@ -17,6 +17,7 @@ import { logger } from "../utils/logger";
 import { CHAT } from "../constants";
 import { env, isOpenAIConfigured } from "../config";
 import { inferState, determineAction, type ConversationState } from "./state";
+import type { Resource } from "@shared/schema";
 
 // Initialize OpenAI client if API key is provided (chat is optional)
 // baseURL allows using proxies or alternative endpoints
@@ -230,7 +231,7 @@ export function registerChatRoutes(app: Express): void {
         // Get fallback resources
         const allResources = await storage.getResources();
         const limitedResources = allResources.slice(0, 5);
-        const resourceList = limitedResources.slice(0, 3).map((r: any) => 
+        const resourceList = limitedResources.slice(0, 3).map((r: Resource) => 
           `• ${r.name}${r.phone ? ` - ${r.phone}` : ""}${r.address ? ` - ${r.address}` : ""}`
         ).join("\n");
         
@@ -556,11 +557,13 @@ export function registerChatRoutes(app: Express): void {
           max_tokens: 256,
           temperature: 0.7,
         });
-      } catch (openaiError: any) {
+      } catch (openaiError: unknown) {
+        // OpenAI errors can be APIError or other Error types
+        const error = openaiError as { message?: string; status?: number; type?: string };
         logger.error("OpenAI API error", { 
-          error: openaiError?.message || "Unknown error",
-          status: openaiError?.status,
-          type: openaiError?.type 
+          error: error.message || "Unknown error",
+          status: error.status,
+          type: error.type 
         });
         
         // Fallback: Get generic resources from database

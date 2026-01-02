@@ -13,6 +13,7 @@ import { MessageCircle, X, Send, Loader2, Bot, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiUrl } from "@/lib/api";
+import type { Resource } from "@shared/schema";
 
 interface Message {
   id: number;
@@ -231,9 +232,13 @@ export function AIChatWidget() {
           }
         }
       }
-    } catch (error: any) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error("Error sending message:", error);
+    } catch (error: unknown) {
+      // Error handling - errors are already handled by UI state updates above
+      // No need to log to console in production to avoid information leakage
+      // In development, errors are visible in React DevTools
+      if (process.env.NODE_ENV === 'development' && error instanceof Error) {
+        // Use console.warn instead of console.error for less critical errors
+        console.warn("Chat message error:", error.message);
       }
       
       // Only update state if component is still mounted
@@ -243,14 +248,14 @@ export function AIChatWidget() {
       }
       
       // Show user-friendly error message
-      const errorMessage = error?.message || "Failed to send message";
+      const errorMessage = error instanceof Error ? error.message : "Failed to send message";
       
       // Try to get generic resources from database as fallback
       try {
         const resourcesResponse = await fetch(apiUrl("/api/resources"));
         if (resourcesResponse.ok && isMountedRef.current) {
-          const resources = await resourcesResponse.json();
-          const resourceList = resources.slice(0, 3).map((r: any) => 
+          const resources = await resourcesResponse.json() as Resource[];
+          const resourceList = resources.slice(0, 3).map((r: Resource) => 
             `• ${r.name}${r.phone ? ` - ${r.phone}` : ""}${r.address ? ` - ${r.address}` : ""}`
           ).join("\n");
           
@@ -312,9 +317,10 @@ export function AIChatWidget() {
             ].join(" ")}
             style={{ 
               // Use dvh to behave better when the mobile keyboard is open.
+              // Fallback to vh for iOS Safari < 15.4
               top: "max(4rem, calc(4rem + env(safe-area-inset-top, 0px)))",
-              height: "calc(100dvh - 4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
-              maxHeight: "calc(100dvh - 4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+              height: "calc(100vh - 4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
+              maxHeight: "calc(100vh - 4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))",
               // Mobile full-width, desktop keeps margins
               maxWidth: "calc(100vw - 1rem)",
               marginLeft: "0",
@@ -371,7 +377,7 @@ export function AIChatWidget() {
                           setInput(suggestion);
                           setTimeout(() => sendMessage(), 100);
                         }}
-                        className="px-2.5 sm:px-3 py-1.5 text-xs bg-white border border-gray-200 rounded-full text-gray-700 hover:bg-gray-100 transition-colors active:scale-95 touch-manipulation"
+                        className="px-2.5 sm:px-3 py-1.5 text-xs bg-white border border-gray-200 rounded-full text-gray-700 hover:bg-gray-100 active:bg-gray-200 active:scale-[0.98] transition-all duration-150 touch-manipulation min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2"
                         data-testid={`button-suggestion-${suggestion.toLowerCase().replace(/\s+/g, '-')}`}
                       >
                         {suggestion}
@@ -453,10 +459,10 @@ export function AIChatWidget() {
                   )}
                 </Button>
               </div>
-              <p className="text-[9px] sm:text-xs text-center text-gray-400 mt-1.5 sm:mt-2 px-1 leading-tight">
+              <p className="text-xs text-center text-gray-400 mt-1.5 sm:mt-2 px-1 leading-tight">
                 For emergencies, call 911 or Crisis Line: 1-888-353-2273
               </p>
-              <p className="text-[8px] sm:text-[10px] text-center text-gray-400 mt-0.5 sm:mt-1 px-1 leading-tight">
+              <p className="text-xs text-center text-gray-400 mt-0.5 sm:mt-1 px-1 leading-tight">
                 Resource helper provides information only, not medical or legal advice.
               </p>
             </div>
@@ -467,7 +473,7 @@ export function AIChatWidget() {
       {!isOpen && (
         <motion.button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center z-[60] transition-colors touch-manipulation min-w-[56px] min-h-[56px] sm:min-w-[64px] sm:min-h-[64px] bg-blue-500 hover:bg-blue-600 active:bg-blue-700"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 w-14 h-14 sm:w-16 sm:h-16 rounded-full shadow-2xl flex items-center justify-center z-[60] transition-all duration-150 touch-manipulation min-w-[56px] min-h-[56px] sm:min-w-[64px] sm:min-h-[64px] bg-blue-500 hover:bg-blue-600 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2"
           style={{
             bottom: "max(1rem, calc(1rem + env(safe-area-inset-bottom, 0px)))",
             right: "max(1rem, calc(1rem + env(safe-area-inset-right, 0px)))",

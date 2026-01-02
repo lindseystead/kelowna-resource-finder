@@ -17,6 +17,7 @@ import { useState, useEffect } from "react";
 import { isFavorite as checkFavorite } from "@/lib/favorites";
 import { isOpenNow } from "@/lib/hours";
 import { useCurrentTime } from "@/hooks/use-current-time";
+import { generateResourceEmailLinkSync } from "@/lib/email-templates";
 
 interface ResourceCardProps {
   resource: Resource;
@@ -133,7 +134,7 @@ export function ResourceCard({ resource, index = 0, userLocation }: ResourceCard
             </Link>
             <button
               onClick={handleFavorite}
-              className="p-2.5 sm:p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
+              className="p-2.5 sm:p-2 rounded-full hover:bg-gray-100 active:bg-gray-200 active:scale-[0.95] transition-all duration-150 shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2"
               data-testid={`button-favorite-${resource.id}`}
               aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
             >
@@ -177,7 +178,7 @@ export function ResourceCard({ resource, index = 0, userLocation }: ResourceCard
               className="overflow-hidden"
             >
               <p 
-                className={`text-sm sm:text-sm text-gray-500 break-words leading-relaxed hyphens-auto ${
+                className={`text-sm text-gray-500 break-words leading-relaxed hyphens-auto ${
                   !isDescriptionExpanded ? "line-clamp-3 sm:line-clamp-2" : ""
                 }`}
               >
@@ -244,7 +245,7 @@ export function ResourceCard({ resource, index = 0, userLocation }: ResourceCard
             <div className="flex items-start sm:items-center gap-2 text-gray-600 min-w-0">
               <Mail className="w-4 h-4 text-primary shrink-0 mt-0.5 sm:mt-0" />
               <a 
-                href={`mailto:${resource.email}?subject=Inquiry about ${encodeURIComponent(resource.name)} - Kelowna Aid&body=Hello ${encodeURIComponent(resource.name)},%0D%0A%0D%0AI found your organization on Kelowna Aid (https://kelownaaid.ca) and I would like to learn more about your services.%0D%0A%0D%0A[Please share any specific questions or information you need here]%0D%0A%0D%0AThank you for the important work you do in our community.%0D%0A%0D%0ABest regards,%0D%0A[Your name]%0D%0A[Your phone number - optional]`}
+                href={generateResourceEmailLinkSync(resource.name, resource.email)}
                 className="hover:text-primary hover:underline transition-colors break-words min-w-0 flex-1 text-sm sm:text-sm leading-relaxed"
                 data-testid={`link-email-${resource.id}`}
                 aria-label={`Send email to ${resource.name}`}
@@ -288,7 +289,7 @@ export function ResourceCard({ resource, index = 0, userLocation }: ResourceCard
               href={`https://www.google.com/maps/dir/?api=1&destination=${resource.latitude},${resource.longitude}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs sm:text-sm font-medium bg-white border border-gray-200 px-4 sm:px-3 py-2.5 sm:py-1.5 rounded-lg text-gray-700 hover:bg-gray-50 active:bg-gray-100 hover:border-gray-300 transition-colors flex items-center gap-1.5 sm:gap-1 whitespace-nowrap min-h-[44px] touch-manipulation flex-1 sm:flex-initial justify-center"
+              className="text-xs sm:text-sm font-medium bg-white border border-gray-200 px-4 sm:px-3 py-2.5 sm:py-1.5 rounded-lg text-gray-700 hover:bg-gray-50 active:bg-gray-100 active:scale-[0.98] hover:border-gray-300 transition-all duration-150 flex items-center gap-1.5 sm:gap-1 whitespace-nowrap min-h-[44px] touch-manipulation flex-1 sm:flex-initial justify-center focus:outline-none focus:ring-2 focus:ring-primary/20 focus:ring-offset-2"
               data-testid={`link-directions-${resource.id}`}
               aria-label={`Get directions to ${resource.name}`}
             >
@@ -306,7 +307,7 @@ export function ResourceCard({ resource, index = 0, userLocation }: ResourceCard
                 href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(resource.address)}&travelmode=transit`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs sm:text-sm font-medium bg-blue-50 border border-blue-200 px-4 sm:px-3 py-2.5 sm:py-1.5 rounded-lg text-blue-700 hover:bg-blue-100 active:bg-blue-200 hover:border-blue-300 transition-colors flex items-center gap-1.5 sm:gap-1 whitespace-nowrap min-h-[44px] touch-manipulation flex-1 sm:flex-initial justify-center"
+                className="text-xs sm:text-sm font-medium bg-blue-50 border border-blue-200 px-4 sm:px-3 py-2.5 sm:py-1.5 rounded-lg text-blue-700 hover:bg-blue-100 active:bg-blue-200 active:scale-[0.98] hover:border-blue-300 transition-all duration-150 flex items-center gap-1.5 sm:gap-1 whitespace-nowrap min-h-[44px] touch-manipulation flex-1 sm:flex-initial justify-center focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2"
                 data-testid={`link-transit-${resource.id}`}
                 aria-label={`Get transit directions to ${resource.name}`}
               >

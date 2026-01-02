@@ -25,7 +25,7 @@ export const securityHeaders = helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"], // Tailwind + Google Fonts
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vite HMR needs this
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vite HMR
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'", "ws:", "wss:"], // WebSocket for HMR
       fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
@@ -59,16 +59,13 @@ export const corsMiddleware = cors({
       return callback(null, true);
     }
 
-    // Allow Vercel preview deployments FIRST (pattern: *.vercel.app)
-    // This allows all Vercel preview URLs without needing to add each one
-    // Check this BEFORE checking ALLOWED_ORIGINS to ensure it always works
+    // Allow Vercel preview deployments (*.vercel.app)
     if (origin.endsWith(".vercel.app")) {
       logger.info("CORS: Allowing Vercel preview deployment", { origin });
       return callback(null, true);
     }
 
-    // Allow helpkelowna.com domain (with or without www)
-    // This covers both www.helpkelowna.com and helpkelowna.com
+    // Allow helpkelowna.com (with or without www)
     if (origin.includes("helpkelowna.com")) {
       logger.info("CORS: Allowing helpkelowna.com domain", { origin });
       return callback(null, true);

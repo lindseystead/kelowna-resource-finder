@@ -29,7 +29,15 @@ export async function getAppConfig(): Promise<AppConfig> {
   }
 
   try {
-    const response = await fetch(apiUrl("/api/config"));
+    const response = await fetch(apiUrl("/api/config"), {
+      // Add CORS mode to handle cross-origin issues
+      mode: 'cors',
+      credentials: 'include',
+      // Add headers to prevent CORS issues
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
     if (!response.ok) {
       throw new Error(`Failed to fetch config: ${response.statusText}`);
     }
@@ -38,6 +46,13 @@ export async function getAppConfig(): Promise<AppConfig> {
     return config;
   } catch (error) {
     // Graceful fallback - app still works if config endpoint is down
+    // Silently handle errors to prevent console noise from third-party scripts
+    if (error instanceof Error && !error.message.includes('net.js')) {
+      // Only log if it's not from third-party scripts
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Config fetch failed, using defaults:', error.message);
+      }
+    }
     return {
       supportEmail: "support@lifesavertech.ca",
       baseUrl: "https://helpkelowna.com",
@@ -71,13 +86,22 @@ export function useAppConfig() {
   return queryClient.fetchQuery({
     queryKey: ["/api/config"],
     queryFn: async () => {
-      const response = await fetch(apiUrl("/api/config"));
+      const response = await fetch(apiUrl("/api/config"), {
+        mode: 'cors',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch config: ${response.statusText}`);
       }
       return response.json() as Promise<AppConfig>;
     },
     staleTime: 1000 * 60 * 60, // 1 hour
+    // Retry with exponential backoff, but fail gracefully
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }
 

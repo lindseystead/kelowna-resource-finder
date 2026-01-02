@@ -16,6 +16,7 @@
 
 import { useCategories } from "@/hooks/use-resources";
 import { CategoryCard } from "@/components/CategoryCard";
+import { CategoryCardSkeleton } from "@/components/CategoryCardSkeleton";
 import { SearchBar } from "@/components/SearchBar";
 import { Navigation } from "@/components/Navigation";
 import { NeedsAssessmentModal } from "@/components/NeedsAssessmentModal";
@@ -120,8 +121,10 @@ export default function Home() {
 
           {/* Loading state - Mobile-optimized */}
           {isLoading ? (
-            <div className="flex justify-center py-12 sm:py-20">
-              <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-primary animate-spin" aria-label="Loading categories" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {[...Array(6)].map((_, i) => (
+                <CategoryCardSkeleton key={i} />
+              ))}
             </div>
           ) : error ? (
             <div className="text-center py-12 sm:py-20 bg-red-50 rounded-xl border border-red-100 px-4">

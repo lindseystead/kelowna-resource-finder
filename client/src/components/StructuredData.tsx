@@ -9,8 +9,14 @@
 
 import { useEffect } from "react";
 
+// Type for JSON-LD structured data (flexible structure for schema.org)
+// Using any here is acceptable for JSON-LD data which has a very flexible schema
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type StructuredDataValue = any;
+
 interface StructuredDataProps {
   type?: "WebSite" | "Organization" | "LocalBusiness" | "Service";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: Record<string, any>;
 }
 
@@ -22,7 +28,18 @@ export function StructuredData({ type = "WebSite", data }: StructuredDataProps) 
       existingScript.remove();
     }
 
+    // Get base URL from config (async, but we'll use a fallback for initial render)
+    const getBaseUrlSync = () => {
+      if (typeof window !== "undefined" && window.location.origin) {
+        return window.location.origin;
+      }
+      return import.meta.env.VITE_BASE_URL || "https://helpkelowna.com";
+    };
+
+    const baseUrl = getBaseUrlSync();
+
     // Base structured data
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let structuredData: Record<string, any> = {
       "@context": "https://schema.org",
       "@type": type,
@@ -33,13 +50,13 @@ export function StructuredData({ type = "WebSite", data }: StructuredDataProps) 
         ...structuredData,
         name: "Help Kelowna",
         alternateName: "Help Kelowna Community Support Directory",
-        url: "https://helpkelowna.com",
+        url: baseUrl,
         description: "Find free community support services in Kelowna and West Kelowna. Food support, shelters, mental health, crisis support, and more.",
         potentialAction: {
           "@type": "SearchAction",
           target: {
             "@type": "EntryPoint",
-            urlTemplate: "https://helpkelowna.com/search?q={search_term_string}",
+            urlTemplate: `${baseUrl}/search?q={search_term_string}`,
           },
           "query-input": "required name=search_term_string",
         },
@@ -48,8 +65,8 @@ export function StructuredData({ type = "WebSite", data }: StructuredDataProps) 
       structuredData = {
         ...structuredData,
         name: "Help Kelowna",
-        url: "https://helpkelowna.com",
-        logo: "https://helpkelowna.com/favicon.svg",
+        url: baseUrl,
+        logo: `${baseUrl}/favicon.svg`,
         description: "Community support directory connecting people in Kelowna and West Kelowna with free and low-cost support services.",
         address: {
           "@type": "PostalAddress",

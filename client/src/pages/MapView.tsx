@@ -17,9 +17,12 @@ import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Phone, Globe, MapPin, ExternalLink, Locate, Bus, Navigation2, Clock, Loader2, Filter, Mail, CheckCircle, DollarSign } from "lucide-react";
+import { Phone, Globe, MapPin, ExternalLink, Locate, Bus, Navigation2, Clock, Loader2, Filter, Mail, CheckCircle, DollarSign, AlertCircle } from "lucide-react";
 import type { Resource, Category } from "@shared/schema";
 import { isOpenNow } from "@/lib/hours";
+import { generateResourceEmailLinkSync } from "@/lib/email-templates";
+import { apiUrl } from "@/lib/api";
+import { api } from "@shared/routes";
 import "leaflet/dist/leaflet.css";
 
 const KELOWNA_CENTER: [number, number] = [49.8880, -119.4960];
@@ -91,12 +94,24 @@ export default function MapView() {
     westKelowna: false,
   });
 
-  const { data: resources = [], isLoading: resourcesLoading } = useQuery<Resource[]>({
-    queryKey: ['/api/resources'],
+  // Fetch resources with proper queryFn
+  const { data: resources = [], isLoading: resourcesLoading, error: resourcesError } = useQuery<Resource[]>({
+    queryKey: [api.resources.list.path],
+    queryFn: async () => {
+      const res = await fetch(apiUrl(api.resources.list.path));
+      if (!res.ok) throw new Error("Failed to fetch resources");
+      return api.resources.list.responses[200].parse(await res.json());
+    },
   });
 
-  const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ['/api/categories'],
+  // Fetch categories with proper queryFn
+  const { data: categories = [], error: categoriesError } = useQuery<Category[]>({
+    queryKey: [api.categories.list.path],
+    queryFn: async () => {
+      const res = await fetch(apiUrl(api.categories.list.path));
+      if (!res.ok) throw new Error("Failed to fetch categories");
+      return api.categories.list.responses[200].parse(await res.json());
+    },
   });
 
   const categoryMap = useMemo(() => 
@@ -105,13 +120,28 @@ export default function MapView() {
   );
 
   // Helper function to validate coordinates
+  // Validates that coordinates are:
+  // 1. Not null/undefined
+  // 2. Valid numbers
+  // 3. Within valid latitude/longitude ranges (global bounds)
+  // Note: We don't restrict to Kelowna area bounds to allow nearby resources (West Kelowna, Lake Country, etc.)
   const isValidCoordinate = (lat: string | null | undefined, lng: string | null | undefined): boolean => {
     if (!lat || !lng) return false;
     const latNum = parseFloat(lat);
     const lngNum = parseFloat(lng);
-    return !isNaN(latNum) && !isNaN(lngNum) && 
-           latNum >= 49.0 && latNum <= 50.5 && 
-           lngNum >= -120.0 && lngNum <= -119.0;
+    
+    // Check if numbers are valid
+    if (isNaN(latNum) || isNaN(lngNum)) return false;
+    
+    // Validate latitude (global bounds: -90 to 90)
+    if (latNum < -90 || latNum > 90) return false;
+    
+    // Validate longitude (global bounds: -180 to 180)
+    if (lngNum < -180 || lngNum > 180) return false;
+    
+    // Return true if valid coordinates (allows resources outside Kelowna bounds)
+    // This ensures resources with valid coordinates show up, even if slightly outside the area
+    return true;
   };
 
   // Calculate resource statistics
@@ -161,6 +191,28 @@ export default function MapView() {
     });
   }, [resources, selectedCategory, filters, categoryMap]);
 
+  // Filter resources with valid coordinates for map display
+  // Dev-only logging to diagnose map issues
+  const resourcesWithCoords = useMemo(() => {
+    const valid = filteredResources.filter((r): r is Resource & { latitude: string; longitude: string } => 
+      isValidCoordinate(r.latitude, r.longitude) && !!r.latitude && !!r.longitude
+    );
+    if (import.meta.env.DEV && resources.length > 0) {
+      console.log('[MapView] Resource stats:', {
+        totalResources: resources.length,
+        filteredResources: filteredResources.length,
+        resourcesWithValidCoords: valid.length,
+        sampleCoords: resources.slice(0, 3).map(r => ({
+          name: r.name,
+          lat: r.latitude,
+          lng: r.longitude,
+          valid: isValidCoordinate(r.latitude, r.longitude),
+        })),
+      });
+    }
+    return valid;
+  }, [filteredResources, resources]);
+
   const handleFilterChange = (filterName: string) => {
     setFilters(prev => ({
       ...prev,
@@ -184,11 +236,11 @@ export default function MapView() {
             </h1>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-600">
               <span className="font-medium">
-                {filteredResources.filter(r => isValidCoordinate(r.latitude, r.longitude)).length} {filteredResources.filter(r => isValidCoordinate(r.latitude, r.longitude)).length === 1 ? 'resource' : 'resources'} shown on map
+                {resourcesWithCoords.length} {resourcesWithCoords.length === 1 ? 'resource' : 'resources'} shown on map
               </span>
-              {filteredResources.length > filteredResources.filter(r => isValidCoordinate(r.latitude, r.longitude)).length && (
+              {filteredResources.length > resourcesWithCoords.length && (
                 <span className="text-xs sm:text-sm text-gray-500">
-                  ({filteredResources.length} total • {filteredResources.filter(r => isValidCoordinate(r.latitude, r.longitude)).length} with valid locations)
+                  ({filteredResources.length} total • {resourcesWithCoords.length} with valid locations)
                 </span>
               )}
             </div>
@@ -223,7 +275,7 @@ export default function MapView() {
                 variant={filters.openNow ? "default" : "outline"}
                 size="sm"
                 onClick={() => handleFilterChange("openNow")}
-                className="min-h-[44px] sm:min-h-[36px] px-3 sm:px-3 text-xs sm:text-sm font-medium border-gray-300 hover:border-primary/40 transition-colors gap-1.5 sm:gap-1.5 touch-manipulation"
+                className="min-h-[44px] px-3 sm:px-3 text-xs sm:text-sm font-medium border-gray-300 hover:border-primary/40 transition-colors gap-1.5 sm:gap-1.5 touch-manipulation"
                 data-testid="button-filter-open"
                 aria-pressed={filters.openNow}
                 aria-label="Filter for resources open now"
@@ -235,7 +287,7 @@ export default function MapView() {
                 variant={filters.verified ? "default" : "outline"}
                 size="sm"
                 onClick={() => handleFilterChange("verified")}
-                className="min-h-[44px] sm:min-h-[36px] px-3 sm:px-3 text-xs sm:text-sm font-medium border-gray-300 hover:border-primary/40 transition-colors gap-1.5 sm:gap-1.5 touch-manipulation"
+                className="min-h-[44px] px-3 sm:px-3 text-xs sm:text-sm font-medium border-gray-300 hover:border-primary/40 transition-colors gap-1.5 sm:gap-1.5 touch-manipulation"
                 data-testid="button-filter-verified"
                 aria-pressed={filters.verified}
                 aria-label="Filter for verified resources"
@@ -247,7 +299,7 @@ export default function MapView() {
                 variant={filters.freeServices ? "default" : "outline"}
                 size="sm"
                 onClick={() => handleFilterChange("freeServices")}
-                className="min-h-[44px] sm:min-h-[36px] px-3 sm:px-3 text-xs sm:text-sm font-medium border-gray-300 hover:border-primary/40 transition-colors gap-1.5 sm:gap-1.5 touch-manipulation"
+                className="min-h-[44px] px-3 sm:px-3 text-xs sm:text-sm font-medium border-gray-300 hover:border-primary/40 transition-colors gap-1.5 sm:gap-1.5 touch-manipulation"
                 data-testid="button-filter-free"
                 aria-pressed={filters.freeServices}
                 aria-label="Filter for free services"
@@ -259,7 +311,7 @@ export default function MapView() {
                 variant={filters.westKelowna ? "default" : "outline"}
                 size="sm"
                 onClick={() => handleFilterChange("westKelowna")}
-                className="min-h-[44px] sm:min-h-[36px] px-3 sm:px-3 text-xs sm:text-sm font-medium border-gray-300 hover:border-primary/40 transition-colors gap-1.5 sm:gap-1.5 touch-manipulation"
+                className="min-h-[44px] px-3 sm:px-3 text-xs sm:text-sm font-medium border-gray-300 hover:border-primary/40 transition-colors gap-1.5 sm:gap-1.5 touch-manipulation"
                 data-testid="button-filter-westkelowna"
                 aria-pressed={filters.westKelowna}
                 aria-label="Filter for West Kelowna resources"
@@ -273,7 +325,7 @@ export default function MapView() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setFilters({ openNow: false, verified: false, freeServices: false, westKelowna: false })}
-                  className="min-h-[44px] sm:min-h-[36px] px-4 sm:px-3 text-sm text-gray-600 hover:text-gray-900"
+                  className="min-h-[44px] px-4 sm:px-3 text-sm text-gray-600 hover:text-gray-900"
                   aria-label={`Clear ${activeFilterCount} active filters`}
                 >
                   Clear ({activeFilterCount})
@@ -291,6 +343,23 @@ export default function MapView() {
             <Loader2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary animate-spin mb-3" aria-hidden="true" />
             <p className="text-sm sm:text-base text-gray-600 font-medium">Loading map...</p>
           </div>
+        ) : resourcesError || categoriesError ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 px-4">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-6 sm:p-8 text-center max-w-md">
+              <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 mx-auto mb-4" aria-hidden="true" />
+              <h3 className="text-lg sm:text-xl font-semibold text-red-900 mb-2">Failed to load map data</h3>
+              <p className="text-sm sm:text-base text-red-700 mb-6">
+                We couldn't load the resources or categories. Please check your connection and try again.
+              </p>
+              <button
+                onClick={() => window.location.reload()}
+                className="inline-flex items-center justify-center px-6 py-3 min-h-[44px] bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 active:bg-red-800 transition-colors touch-manipulation"
+                aria-label="Retry loading map data"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
         ) : filteredResources.length === 0 ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 px-4">
             <MapPin className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mb-4" aria-hidden="true" />
@@ -298,6 +367,34 @@ export default function MapView() {
             <p className="text-sm sm:text-base text-gray-600 text-center max-w-md">
               Try adjusting your filters or select a different category to see resources on the map.
             </p>
+          </div>
+        ) : resourcesWithCoords.length === 0 ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 px-4">
+            <MapContainer
+              center={KELOWNA_CENTER}
+              zoom={DEFAULT_ZOOM}
+              className="absolute inset-0 w-full h-full z-0 opacity-50"
+              scrollWheelZoom={true}
+              touchZoom={true}
+              doubleClickZoom={true}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+            </MapContainer>
+            <div className="relative z-10 bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200 shadow-lg p-6 sm:p-8 max-w-md text-center">
+              <MapPin className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" aria-hidden="true" />
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">No resources with locations</h3>
+              <p className="text-sm sm:text-base text-gray-600 mb-4">
+                {filteredResources.length > 0 
+                  ? `${filteredResources.length} resource${filteredResources.length === 1 ? '' : 's'} found, but none have valid map coordinates.`
+                  : 'No resources match your current filters.'}
+              </p>
+              <p className="text-xs sm:text-sm text-gray-500">
+                Resources without coordinates are still available in the list view. Try adjusting your filters or browse by category.
+              </p>
+            </div>
           </div>
         ) : (
           <MapContainer
@@ -314,13 +411,14 @@ export default function MapView() {
             />
             <LocateButton />
             
-            {filteredResources
-              .filter(resource => isValidCoordinate(resource.latitude, resource.longitude))
-              .map(resource => {
+            {resourcesWithCoords.map(resource => {
               const category = resource.categoryId ? categoryMap.get(resource.categoryId) : undefined;
               const color = category ? categoryColors[category.slug] || "#6366f1" : "#6366f1";
-              const lat = parseFloat(resource.latitude!);
-              const lng = parseFloat(resource.longitude!);
+              // Double-check coordinates are valid before rendering Marker
+              if (!resource.latitude || !resource.longitude) return null;
+              const lat = parseFloat(resource.latitude);
+              const lng = parseFloat(resource.longitude);
+              if (isNaN(lat) || isNaN(lng)) return null;
               
               return (
                 <Marker
@@ -411,7 +509,7 @@ export default function MapView() {
                           <div className="flex items-center gap-2 text-gray-700">
                             <Mail className="w-4 h-4 shrink-0 text-primary" aria-hidden="true" />
                             <a 
-                              href={`mailto:${resource.email}?subject=Inquiry about ${encodeURIComponent(resource.name)} - Kelowna Aid&body=Hello ${encodeURIComponent(resource.name)},%0D%0A%0D%0AI found your organization on Kelowna Aid (https://kelownaaid.ca) and I would like to learn more about your services.%0D%0A%0D%0A[Please share any specific questions or information you need here]%0D%0A%0D%0AThank you for the important work you do in our community.%0D%0A%0D%0ABest regards,%0D%0A[Your name]%0D%0A[Your phone number - optional]`}
+                              href={generateResourceEmailLinkSync(resource.name, resource.email)}
                               className="text-xs sm:text-sm hover:text-primary hover:underline transition-colors break-all"
                               aria-label={`Send email to ${resource.name}`}
                             >
@@ -440,7 +538,7 @@ export default function MapView() {
                           href={`https://www.google.com/maps/dir/?api=1&destination=${resource.latitude},${resource.longitude}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 sm:py-2 rounded-lg transition-colors min-h-[44px] sm:min-h-[36px]"
+                          className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 sm:py-2 rounded-lg transition-colors min-h-[44px]"
                           data-testid={`button-directions-${resource.id}`}
                           aria-label={`Get driving directions to ${resource.name}`}
                         >
@@ -458,7 +556,7 @@ export default function MapView() {
                             href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(resource.address)}&travelmode=transit`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 py-2.5 sm:py-2 rounded-lg transition-colors min-h-[44px] sm:min-h-[36px]"
+                            className="flex-1 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-medium bg-blue-100 hover:bg-blue-200 text-blue-700 py-2.5 sm:py-2 rounded-lg transition-colors min-h-[44px]"
                             data-testid={`button-transit-${resource.id}`}
                             aria-label={`Get transit directions to ${resource.name}`}
                           >
@@ -471,7 +569,7 @@ export default function MapView() {
                       <Button 
                         size="sm" 
                         variant="default"
-                        className="w-full gap-2 !text-white hover:!text-white min-h-[44px] sm:min-h-[36px] text-sm font-medium" 
+                        className="w-full gap-2 !text-white hover:!text-white min-h-[44px] text-sm font-medium" 
                         asChild 
                         data-testid={`button-view-resource-${resource.id}`}
                       >
@@ -496,7 +594,7 @@ export default function MapView() {
             <Filter className="w-4 h-4 text-gray-500" aria-hidden="true" />
             <h2 className="text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wide">Category Legend</h2>
           </div>
-          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="overflow-x-auto px-4 sm:px-0">
             <div className="flex flex-wrap gap-x-4 sm:gap-x-6 gap-y-2 sm:gap-y-3 min-w-max sm:min-w-0">
               {categories.map(cat => {
                 const color = categoryColors[cat.slug] || "#6366f1";

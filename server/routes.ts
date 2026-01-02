@@ -18,6 +18,7 @@ import { logger } from "./utils/logger";
 import { updateResourceSchema, categories, resourceCategories } from "@shared/schema";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
+import { getErrorMessage } from "./types/errors";
 
 /**
  * Assigns additional categories to resources that belong in multiple categories.
@@ -80,9 +81,11 @@ async function assignMultipleCategories(catMap: Map<string, number>): Promise<vo
             resourceId: resource.id,
             categoryId: catId,
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           // Ignore duplicate key errors (composite primary key violation)
-          if (!error?.code || error.code !== '23505') {
+          // PostgreSQL error code 23505 = unique_violation
+          const pgError = error as { code?: string };
+          if (!pgError.code || pgError.code !== '23505') {
             logger.error(`Failed to assign category ${catId} to resource ${resource.id}`, error);
           }
         }
@@ -3990,8 +3993,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Seed on startup - only runs if database is empty
-  // Don't crash if it fails (might already be seeded)
+  // Seed on startup if database is empty
   seedDatabase().catch((error) => {
     logger.error("Failed to seed database", error);
   });

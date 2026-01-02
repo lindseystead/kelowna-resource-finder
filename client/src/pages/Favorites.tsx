@@ -7,13 +7,14 @@
  * Displays user's favorited resources with sorting and filtering options.
  */
 
-import { useQuery } from "@tanstack/react-query";
 import { ResourceCard } from "@/components/ResourceCard";
+import { ResourceCardSkeleton } from "@/components/ResourceCardSkeleton";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
-import { Loader2, Heart, ArrowLeft, Printer } from "lucide-react";
+import { Loader2, Heart, ArrowLeft, Printer, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
+import { useResources } from "@/hooks/use-resources";
 import { type Resource } from "@shared/schema";
 import { useUserLocation } from "@/hooks/use-location";
 import { sortByOpenStatus } from "@/lib/hours";
@@ -25,9 +26,8 @@ export default function Favorites() {
   const { location: userLocation } = useUserLocation();
   const currentTime = useCurrentTime(); // Updates every 10 seconds to refresh open/closed status
   
-  const { data: allResources, isLoading } = useQuery<Resource[]>({
-    queryKey: ['/api/resources'],
-  });
+  // Fetch all resources (no search filter)
+  const { data: allResources, isLoading, error: resourcesError } = useResources();
   
   const favoriteResources = sortByOpenStatus(
     allResources?.filter(r => favorites.includes(r.id)) || []
@@ -77,7 +77,7 @@ export default function Favorites() {
                 variant="outline"
                 size="sm"
                 onClick={() => window.print()}
-                className="gap-2 min-h-[44px] sm:min-h-[36px] px-3 sm:px-4 print-keep"
+                className="gap-2 min-h-[44px] px-3 sm:px-4 print-keep"
                 data-testid="button-print-favorites"
                 aria-label="Print saved resources"
               >
@@ -93,8 +93,25 @@ export default function Favorites() {
       {/* Results - 2025 Mobile-First */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 md:py-12">
         {isLoading ? (
-          <div className="flex justify-center py-12 sm:py-20">
-            <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-primary animate-spin" aria-label="Loading favorites" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+            {[...Array(6)].map((_, i) => (
+              <ResourceCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : resourcesError ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 sm:p-8 text-center">
+            <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 mx-auto mb-4" aria-hidden="true" />
+            <h3 className="text-lg sm:text-xl font-semibold text-red-900 mb-2">Failed to load resources</h3>
+            <p className="text-sm sm:text-base text-red-700 mb-6 max-w-md mx-auto">
+              We couldn't load your saved resources. Please check your connection and try again.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center justify-center px-6 py-3 min-h-[44px] bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 active:bg-red-800 transition-colors touch-manipulation"
+              aria-label="Retry loading resources"
+            >
+              Try Again
+            </button>
           </div>
         ) : favoriteResources.length > 0 ? (
           <>

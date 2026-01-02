@@ -35,6 +35,63 @@ describe('Search Functionality - Edge Cases', () => {
     });
   });
 
+  describe('Common search terms (Critical Fix)', () => {
+    it('should return results for "food" search', async () => {
+      const results = await storage.getResources({ search: 'food' });
+      // Should return food-related resources (food banks, food support, etc.)
+      expect(results.length).toBeGreaterThan(0);
+      // Verify results contain food-related terms
+      const hasFoodRelated = results.some(r => 
+        r.name.toLowerCase().includes('food') || 
+        r.description?.toLowerCase().includes('food')
+      );
+      expect(hasFoodRelated).toBe(true);
+    });
+
+    it('should return results for "food bank" search', async () => {
+      const results = await storage.getResources({ search: 'food bank' });
+      // Should return food bank resources
+      expect(results.length).toBeGreaterThan(0);
+      // Verify results contain food bank terms
+      const hasFoodBank = results.some(r => 
+        r.name.toLowerCase().includes('food') || 
+        r.description?.toLowerCase().includes('food')
+      );
+      expect(hasFoodBank).toBe(true);
+    });
+
+    it('should return results for "shelter" search', async () => {
+      const results = await storage.getResources({ search: 'shelter' });
+      // Should return shelter resources
+      expect(results.length).toBeGreaterThan(0);
+      // Verify results contain shelter terms
+      const hasShelter = results.some(r => 
+        r.name.toLowerCase().includes('shelter') || 
+        r.description?.toLowerCase().includes('shelter')
+      );
+      expect(hasShelter).toBe(true);
+    });
+
+    it('should support partial matches (e.g., "food" matches "food bank")', async () => {
+      const results = await storage.getResources({ search: 'food' });
+      // Should include resources with "food bank" in the name
+      const hasFoodBank = results.some(r => 
+        r.name.toLowerCase().includes('food bank')
+      );
+      expect(hasFoodBank).toBe(true);
+    });
+
+    it('should be case-insensitive', async () => {
+      const lowerResults = await storage.getResources({ search: 'food' });
+      const upperResults = await storage.getResources({ search: 'FOOD' });
+      const mixedResults = await storage.getResources({ search: 'FoOd' });
+      
+      // All should return the same results (or at least same count)
+      expect(lowerResults.length).toBe(upperResults.length);
+      expect(lowerResults.length).toBe(mixedResults.length);
+    });
+  });
+
   describe('Crisis resource filtering', () => {
     it('should exclude crisis resources from shelter searches', async () => {
       const results = await storage.getResources({ search: 'shelter for man and his dog' });

@@ -1,10 +1,11 @@
-import { useResources } from "@/hooks/use-resources";
+import { useResources, useCategories } from "@/hooks/use-resources";
 import { ResourceCard } from "@/components/ResourceCard";
+import { ResourceCardSkeleton } from "@/components/ResourceCardSkeleton";
 import { Navigation } from "@/components/Navigation";
 import { SearchBar } from "@/components/SearchBar";
 import { FilterBar } from "@/components/FilterBar";
 import { Footer } from "@/components/Footer";
-import { Loader2, ArrowLeft, MapPin, Info } from "lucide-react";
+import { Loader2, ArrowLeft, MapPin, Info, Search, Sparkles, AlertCircle } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { useUserLocation } from "@/hooks/use-location";
 import { calculateDistance } from "@/lib/distance";
@@ -19,8 +20,17 @@ export default function SearchResults() {
   const { location: userLocation } = useUserLocation();
 
   const [filters, setFilters] = useState({ openNow: false, verified: false, freeServices: false, westKelowna: false, nearby: false });
-  const { data: resources, isLoading } = useResources({ search: query });
+  const { data: resources, isLoading, error: resourcesError } = useResources({ search: query });
+  const { data: categories = [] } = useCategories();
   const currentTime = useCurrentTime(); // Updates every 10 seconds to refresh open/closed status
+  
+  // Popular categories for quick links (most commonly searched)
+  const popularCategories = categories.filter(cat => 
+    ['food-banks', 'shelters', 'health', 'crisis', 'legal', 'employment'].includes(cat.slug)
+  ).slice(0, 6);
+  
+  // Search suggestions based on common terms
+  const searchSuggestions = ['food', 'shelter', 'health', 'crisis', 'legal', 'employment'];
   
   // Filter and sort resources
   const filteredResources = resources?.filter(r => {
@@ -127,8 +137,28 @@ export default function SearchResults() {
       {/* Results - 2025 Mobile-First */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 md:py-12">
         {isLoading ? (
-          <div className="flex justify-center py-12 sm:py-20">
-            <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-primary animate-spin" aria-label="Loading search results" />
+          <div>
+            <FilterBar filters={filters} onFilterChange={setFilters} hasUserLocation={!!userLocation} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mt-4 sm:mt-6">
+              {[...Array(6)].map((_, i) => (
+                <ResourceCardSkeleton key={i} />
+              ))}
+            </div>
+          </div>
+        ) : resourcesError ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 sm:p-8 text-center">
+            <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 mx-auto mb-4" aria-hidden="true" />
+            <h3 className="text-lg sm:text-xl font-semibold text-red-900 mb-2">Failed to load resources</h3>
+            <p className="text-sm sm:text-base text-red-700 mb-6 max-w-md mx-auto">
+              We couldn't load the search results. Please check your connection and try again.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center justify-center px-6 py-3 min-h-[44px] bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 active:bg-red-800 transition-colors touch-manipulation"
+              aria-label="Retry loading resources"
+            >
+              Try Again
+            </button>
           </div>
         ) : (
           <div>
@@ -167,19 +197,69 @@ export default function SearchResults() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 sm:py-16 md:py-20 bg-white rounded-xl border border-dashed border-gray-200 px-4">
-                <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-1">No matches found</h3>
-                <p className="text-sm sm:text-base text-gray-500 mt-1 max-w-md mx-auto px-2">
-                  We couldn't find any resources matching your search. Try using broader terms like "food" or "health".
-                </p>
-                <div className="mt-6 sm:mt-8">
-                  <Link 
-                    href="/categories" 
-                    className="text-primary font-medium hover:underline min-h-[44px] inline-flex items-center touch-manipulation"
-                    aria-label="Browse all categories"
-                  >
-                    Browse all categories instead
-                  </Link>
+              <div className="bg-white rounded-xl border border-dashed border-gray-200 px-4 sm:px-6 py-12 sm:py-16 md:py-20">
+                <div className="max-w-2xl mx-auto text-center">
+                  <div className="mb-6 sm:mb-8">
+                    <Search className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" aria-hidden="true" />
+                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">No matches found</h3>
+                    <p className="text-sm sm:text-base text-gray-600 max-w-md mx-auto">
+                      We couldn't find any resources matching "{query}". Try a different search term or browse by category.
+                    </p>
+                  </div>
+                  
+                  {/* Search Suggestions */}
+                  <div className="mb-6 sm:mb-8">
+                    <p className="text-xs sm:text-sm font-medium text-gray-700 mb-3 sm:mb-4 uppercase tracking-wide">
+                      Try searching for:
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+                      {searchSuggestions.map((suggestion) => (
+                        <Link
+                          key={suggestion}
+                          href={`/search?q=${encodeURIComponent(suggestion)}`}
+                          className="inline-flex items-center px-3 sm:px-4 py-2 min-h-[44px] text-sm font-medium text-gray-700 bg-gray-50 hover:bg-primary hover:text-white border border-gray-200 hover:border-primary rounded-lg transition-colors touch-manipulation"
+                          aria-label={`Search for ${suggestion}`}
+                        >
+                          <Search className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
+                          {suggestion}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Popular Categories */}
+                  {popularCategories.length > 0 && (
+                    <div className="mb-6 sm:mb-8">
+                      <p className="text-xs sm:text-sm font-medium text-gray-700 mb-3 sm:mb-4 uppercase tracking-wide">
+                        Or browse popular categories:
+                      </p>
+                      <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+                        {popularCategories.map((category) => (
+                          <Link
+                            key={category.id}
+                            href={`/category/${category.slug}`}
+                            className="inline-flex items-center px-3 sm:px-4 py-2 min-h-[44px] text-sm font-medium text-primary bg-primary/5 hover:bg-primary hover:text-white border border-primary/20 hover:border-primary rounded-lg transition-colors touch-manipulation"
+                            aria-label={`Browse ${category.name} category`}
+                          >
+                            <Sparkles className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
+                            {category.name}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Browse All Categories Link */}
+                  <div className="pt-4 sm:pt-6 border-t border-gray-200">
+                    <Link 
+                      href="/categories" 
+                      className="text-primary font-medium hover:underline min-h-[44px] inline-flex items-center touch-manipulation text-sm sm:text-base"
+                      aria-label="Browse all categories"
+                    >
+                      Browse all categories
+                      <ArrowLeft className="w-4 h-4 ml-1 rotate-180" aria-hidden="true" />
+                    </Link>
+                  </div>
                 </div>
               </div>
             )}
