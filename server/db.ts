@@ -48,6 +48,10 @@ function shouldRelaxTlsForDatabase(connectionString: string): boolean {
 }
 
 // Connection pool - defaults to 10 connections which is fine for our scale
+// Note: dns.setDefaultResultOrder("ipv4first") above ensures IPv4 is preferred
+// Railway doesn't support IPv6 egress, so this is critical for Supabase connections
+// If you still get IPv6 errors, use Supabase's connection pooler URL instead:
+// postgresql://postgres.xxx:[PASSWORD]@aws-0-us-east-1.pooler.supabase.com:6543/postgres
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl:

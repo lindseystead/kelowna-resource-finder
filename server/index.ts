@@ -94,63 +94,58 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  try {
-    // Register authentication routes first
-    registerAuthRoutes(app);
+  // Register authentication routes first
+  registerAuthRoutes(app);
 
-    // Register other routes
-    await registerRoutes(httpServer, app);
-    
-    // Register SEO routes (sitemap, robots.txt)
-    registerSEORoutes(app);
+  // Register other routes
+  await registerRoutes(httpServer, app);
+  
+  // Register SEO routes (sitemap, robots.txt)
+  registerSEORoutes(app);
 
-    // importantly only setup vite in development and after
-    // setting up all the other routes so the catch-all route
-    // doesn't interfere with the other routes
-    if (process.env.NODE_ENV === "production") {
-      /**
-       * Split-deployment support:
-       * - In a monolith deploy, `dist/public` exists and we serve the SPA from the backend.
-       * - In split deploy (Vercel frontend + Railway backend), `dist/public` is not built on Railway.
-       *   In that case, run API-only mode instead of crashing on startup.
-       */
-      const distPath = path.resolve(process.cwd(), "dist");
-      const legacyDistPublicPath = path.resolve(process.cwd(), "dist", "public");
-      const hasFrontendBuild = fs.existsSync(path.resolve(distPath, "index.html")) || fs.existsSync(path.resolve(legacyDistPublicPath, "index.html"));
+  // importantly only setup vite in development and after
+  // setting up all the other routes so the catch-all route
+  // doesn't interfere with the other routes
+  if (process.env.NODE_ENV === "production") {
+    /**
+     * Split-deployment support:
+     * - In a monolith deploy, `dist/public` exists and we serve the SPA from the backend.
+     * - In split deploy (Vercel frontend + Railway backend), `dist/public` is not built on Railway.
+     *   In that case, run API-only mode instead of crashing on startup.
+     */
+    const distPath = path.resolve(process.cwd(), "dist");
+    const legacyDistPublicPath = path.resolve(process.cwd(), "dist", "public");
+    const hasFrontendBuild = fs.existsSync(path.resolve(distPath, "index.html")) || fs.existsSync(path.resolve(legacyDistPublicPath, "index.html"));
 
-      if (hasFrontendBuild) {
-        serveStatic(app);
-      } else {
-        log("Static build not found. Running API-only mode (split deployment).");
-      }
+    if (hasFrontendBuild) {
+      serveStatic(app);
     } else {
-      const { setupVite } = await import("./vite");
-      await setupVite(httpServer, app);
+      log("Static build not found. Running API-only mode (split deployment).");
     }
-
-    // 404 handler (must be after all routes including Vite)
-    // Only handles API routes that weren't matched
-    app.use((req, res, next) => {
-      if (req.path.startsWith("/api")) {
-        notFoundHandler(req, res);
-      } else {
-        next();
-      }
-    });
-
-    // Global error handler (must be last)
-    app.use(errorHandler);
-
-    // ALWAYS serve the app on the port specified in the environment variable PORT
-    // Other ports are firewalled. Default to 5000 if not specified.
-    // this serves both the API and the client.
-    // It is the only port that is not firewalled.
-    const port = parseInt(process.env.PORT || "5000", 10);
-    httpServer.listen(port, "0.0.0.0", () => {
-      log(`serving on port ${port}`);
-    });
-  } catch (error) {
-    console.error("FATAL: Failed to start server:", error);
-    process.exit(1);
+  } else {
+    const { setupVite } = await import("./vite");
+    await setupVite(httpServer, app);
   }
+
+  // 404 handler (must be after all routes including Vite)
+  // Only handles API routes that weren't matched
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      notFoundHandler(req, res);
+    } else {
+      next();
+    }
+  });
+
+  // Global error handler (must be last)
+  app.use(errorHandler);
+
+  // ALWAYS serve the app on the port specified in the environment variable PORT
+  // Other ports are firewalled. Default to 5000 if not specified.
+  // this serves both the API and the client.
+  // It is the only port that is not firewalled.
+  const port = parseInt(process.env.PORT || "5000", 10);
+  httpServer.listen(port, "0.0.0.0", () => {
+    log(`serving on port ${port}`);
+  });
 })();
