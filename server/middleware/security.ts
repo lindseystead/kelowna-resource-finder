@@ -59,6 +59,14 @@ export const corsMiddleware = cors({
       return callback(null, true);
     }
 
+    // Allow Vercel preview deployments FIRST (pattern: *.vercel.app)
+    // This allows all Vercel preview URLs without needing to add each one
+    // Check this BEFORE checking ALLOWED_ORIGINS to ensure it always works
+    if (origin.endsWith(".vercel.app")) {
+      logger.info("CORS: Allowing Vercel preview deployment", { origin });
+      return callback(null, true);
+    }
+
     // In production, check against allowed origins
     const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()) || [];
     
@@ -70,19 +78,13 @@ export const corsMiddleware = cors({
       return callback(null, true);
     }
 
-    // Check exact match first
+    // Check exact match
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    // Allow Vercel preview deployments (pattern: *.vercel.app)
-    // This allows all Vercel preview URLs without needing to add each one
-    if (origin.endsWith(".vercel.app")) {
-      return callback(null, true);
-    }
-
     logger.warn("CORS blocked origin", { origin, allowedOrigins });
-    callback(new Error("Not allowed by CORS"));
+    callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
