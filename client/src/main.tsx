@@ -17,8 +17,11 @@
       lower.includes('net.js') ||
       lower.includes('effulgent-jelly') ||
       lower.includes('netlify.app') ||
-      (lower.includes('cors policy') && lower.includes('netlify')) ||
-      lower.includes('config.json') && lower.includes('netlify')
+      lower.includes('osano.js') ||
+      lower.includes('railway.com') ||
+      (lower.includes('cors policy') && (lower.includes('netlify') || lower.includes('effulgent'))) ||
+      (lower.includes('config.json') && (lower.includes('netlify') || lower.includes('effulgent'))) ||
+      (lower.includes('svg') && lower.includes('viewbox'))
     );
   };
 
