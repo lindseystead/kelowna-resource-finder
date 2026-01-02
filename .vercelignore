@@ -1,0 +1,31 @@
+# Vercel ignore file
+# Files/directories that should not be deployed to Vercel
+
+# Backend code (deployed separately on Railway)
+server/
+script/build-backend.ts
+script/build.mjs
+script/build.ts
+Dockerfile
+
+# Database migrations (run on Railway, not Vercel)
+migrations/
+drizzle.config.ts
+
+# Test files
+**/__tests__/
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+vitest.config.ts
+
+# Documentation (not needed in production build)
+docs/
+*.md
+!README.md
+
+# Development files
+.env*
+!.env.example
+

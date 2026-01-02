@@ -70,10 +70,18 @@ export const corsMiddleware = cors({
       return callback(null, true);
     }
 
+    // Check exact match first
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
+    // Allow Vercel preview deployments (pattern: *.vercel.app)
+    // This allows all Vercel preview URLs without needing to add each one
+    if (origin.endsWith(".vercel.app")) {
+      return callback(null, true);
+    }
+
+    logger.warn("CORS blocked origin", { origin, allowedOrigins });
     callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
