@@ -7,7 +7,7 @@
   "cleanUrls": false,
   "rewrites": [
     {
-      "source": "/((?!assets/).*)",
+      "source": "/((?!assets|favicon|manifest|robots).*)",
       "destination": "/index.html"
     }
   ],
