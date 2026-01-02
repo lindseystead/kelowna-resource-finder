@@ -15,44 +15,56 @@ export function registerSEORoutes(app: Express) {
   app.get("/sitemap.xml", async (req, res) => {
     try {
       const { env } = await import("./config.js");
-      const baseUrl = env.BASE_URL || "https://helpkelowna.com";
+      const baseUrl = env.BASE_URL || "https://www.helpkelowna.com";
       const resources = await storage.getResources();
       const categories = await storage.getCategories();
+      
+      // Use current date for lastmod
+      const lastmod = new Date().toISOString().split("T")[0];
 
-      // Static pages
+      // Key categories that should have higher priority (most searched)
+      const keyCategorySlugs = ["food-banks", "shelters", "crisis", "health", "legal"];
+
+      // Static pages (high priority)
       const staticPages = [
-        { url: "", priority: 1.0, changefreq: "daily" },
-        { url: "/about", priority: 0.8, changefreq: "monthly" },
+        { url: "", priority: 1.0, changefreq: "weekly" },
         { url: "/categories", priority: 0.9, changefreq: "weekly" },
-        { url: "/map", priority: 0.8, changefreq: "weekly" },
-        { url: "/favorites", priority: 0.7, changefreq: "monthly" },
-        { url: "/request-update", priority: 0.6, changefreq: "monthly" },
-        { url: "/disclaimer", priority: 0.5, changefreq: "yearly" },
+        { url: "/map", priority: 0.85, changefreq: "daily" },
+        { url: "/about", priority: 0.7, changefreq: "monthly" },
       ];
 
-      // Category pages
-      const categoryPages = categories.map((cat) => ({
-        url: `/category/${cat.slug}`,
-        priority: 0.9,
-        changefreq: "weekly",
-      }));
+      // Category pages - prioritize key categories
+      const categoryPages = categories.map((cat) => {
+        const isKeyCategory = keyCategorySlugs.includes(cat.slug);
+        return {
+          url: `/category/${cat.slug}`,
+          priority: isKeyCategory ? 0.95 : 0.85,
+          changefreq: isKeyCategory ? "daily" : "weekly",
+        };
+      });
 
-      // Resource pages
+      // Resource pages (important for individual resource discovery)
       const resourcePages = resources.map((resource) => ({
         url: `/resource/${resource.id}`,
         priority: 0.8,
         changefreq: "monthly",
       }));
 
+      // Combine all pages
       const allPages = [...staticPages, ...categoryPages, ...resourcePages];
 
       const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:mobile="http://www.google.com/schemas/sitemap-mobile/1.0"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
 ${allPages
   .map(
     (page) => `  <url>
     <loc>${baseUrl}${page.url}</loc>
-    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
+    <lastmod>${lastmod}</lastmod>
     <changefreq>${page.changefreq}</changefreq>
     <priority>${page.priority}</priority>
   </url>`
