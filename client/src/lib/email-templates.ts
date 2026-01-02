@@ -17,10 +17,10 @@ export async function generateResourceEmailLink(
   resourceEmail: string
 ): Promise<string> {
   const baseUrl = await getBaseUrl();
-  const subject = encodeURIComponent(`Inquiry about ${resourceName} - Kelowna Aid`);
+  const subject = encodeURIComponent(`Inquiry about ${resourceName} - Help Kelowna`);
   const body = encodeURIComponent(
     `Hello ${resourceName},\n\n` +
-    `I found your organization on Kelowna Aid (${baseUrl}) and I would like to learn more about your services.\n\n` +
+    `I found your organization on Help Kelowna (${baseUrl}) and I would like to learn more about your services.\n\n` +
     `[Please share any specific questions or information you need here]\n\n` +
     `Thank you for the important work you do in our community.\n\n` +
     `Best regards,\n` +
@@ -45,10 +45,10 @@ export function generateResourceEmailLinkSync(
     (typeof window !== "undefined" && window.location.origin) ||
     import.meta.env.VITE_BASE_URL ||
     "https://helpkelowna.com";
-  const subject = encodeURIComponent(`Inquiry about ${resourceName} - Kelowna Aid`);
+  const subject = encodeURIComponent(`Inquiry about ${resourceName} - Help Kelowna`);
   const body = encodeURIComponent(
     `Hello ${resourceName},\n\n` +
-    `I found your organization on Kelowna Aid (${baseUrl}) and I would like to learn more about your services.\n\n` +
+    `I found your organization on Help Kelowna (${baseUrl}) and I would like to learn more about your services.\n\n` +
     `[Please share any specific questions or information you need here]\n\n` +
     `Thank you for the important work you do in our community.\n\n` +
     `Best regards,\n` +

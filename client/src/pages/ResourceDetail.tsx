@@ -8,7 +8,7 @@
  * contact information, directions, and transit options.
  */
 
-import { useResource, useCategory } from "@/hooks/use-resources";
+import { useResource, useCategory, useResources } from "@/hooks/use-resources";
 import { Navigation } from "@/components/Navigation";
 import { ShareBar } from "@/components/ShareBar";
 import { Footer } from "@/components/Footer";
@@ -205,9 +205,9 @@ export default function ResourceDetail() {
                     </h1>
                     <div className="flex flex-wrap items-center gap-2">
                       {resource.verified && (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-100" title="This resource has been verified, but please call ahead to confirm current information">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm font-medium border border-green-100" title={resource.lastVerified ? `Verified on ${new Date(resource.lastVerified).toLocaleDateString()}. Please call ahead to confirm current information.` : "This resource has been verified, but please call ahead to confirm current information"}>
                           <CheckCircle className="w-4 h-4" />
-                          Verified (call to confirm)
+                          Verified{resource.lastVerified ? ` (${new Date(resource.lastVerified).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })})` : ''}
                         </div>
                       )}
                       {resource.hours && (
@@ -641,9 +641,57 @@ export default function ResourceDetail() {
                 </div>
               </div>
 
+              {/* Related Resources */}
+              {resource && categories && (() => {
+                const parentCategory = categories.find(c => c.id === resource.categoryId);
+                if (!parentCategory) return null;
+                
+                // Fetch related resources in the same category
+                const { data: relatedResources } = useQuery({
+                  queryKey: [api.resources.list.path, parentCategory.id],
+                  queryFn: async () => {
+                    const url = new URL(apiUrl(api.resources.list.path), window.location.origin);
+                    url.searchParams.append("categoryId", String(parentCategory.id));
+                    const res = await fetch(url.toString());
+                    if (!res.ok) return [];
+                    const all = await api.resources.list.responses[200].parse(await res.json());
+                    // Exclude current resource and limit to 4
+                    return all.filter(r => r.id !== resource.id).slice(0, 4);
+                  },
+                  enabled: !!parentCategory,
+                });
+                
+                if (!relatedResources || relatedResources.length === 0) return null;
+                
+                return (
+                  <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md border border-gray-100">
+                    <h3 className="font-display font-bold text-base sm:text-lg text-gray-900 mb-3 sm:mb-4">Related Resources</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-4">
+                      Other resources in {parentCategory.name}:
+                    </p>
+                    <div className="space-y-2">
+                      {relatedResources.map(related => (
+                        <Link
+                          key={related.id}
+                          href={`/resource/${related.id}`}
+                          className="block p-3 rounded-lg border border-gray-200 hover:border-primary hover:bg-primary/5 transition-colors touch-manipulation min-h-[44px]"
+                        >
+                          <div className="font-medium text-sm sm:text-base text-gray-900">{related.name}</div>
+                          {related.description && (
+                            <div className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">
+                              {related.description}
+                            </div>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Report/Edit Resource */}
               <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md border border-gray-100">
-                <h3 className="font-display font-bold text-base sm:text-lg text-gray-900 mb-3 sm:mb-4">Report or Edit</h3>
+                <h3 className="font-display font-bold text-base sm:text-lg text-gray-900 mb-3 sm:mb-4">Report Incorrect Information</h3>
                 <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 leading-relaxed">
                   Found incorrect information or want to add details about this resource?
                 </p>

@@ -602,28 +602,35 @@ export default function MapView() {
         )}
       </div>
       
-      {/* Legend - Mobile First, Scrollable */}
-      <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4 bg-white border-t border-gray-200">
+      {/* Legend - Mobile First, Scrollable with Counts */}
+      <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5 bg-white border-t border-gray-200">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-2 mb-2 sm:mb-3">
-            <Filter className="w-4 h-4 text-gray-500" aria-hidden="true" />
-            <h2 className="text-xs sm:text-sm font-semibold text-gray-700 uppercase tracking-wide">Category Legend</h2>
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" aria-hidden="true" />
+            <h2 className="text-sm sm:text-base font-semibold text-gray-900">Category Legend</h2>
           </div>
-          <div className="overflow-x-auto px-4 sm:px-0">
-            <div className="flex flex-wrap gap-x-4 sm:gap-x-6 gap-y-2 sm:gap-y-3 min-w-max sm:min-w-0">
+          <div className="overflow-x-auto px-2 sm:px-0 -mx-2 sm:mx-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 min-w-max sm:min-w-0">
               {categories.map(cat => {
                 const color = categoryColors[cat.slug] || "#6366f1";
+                // Count resources in this category that are currently visible on map
+                const categoryResourceCount = resourcesWithCoords.filter(r => {
+                  const resourceCategory = categoryMap.get(r.categoryId || 0);
+                  return resourceCategory?.slug === cat.slug;
+                }).length;
+                
                 return (
                   <div 
                     key={cat.slug} 
-                    className="flex items-center gap-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap"
+                    className="flex items-center gap-2.5 sm:gap-3 px-2 py-1.5 sm:py-2 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-sm text-gray-700"
                   >
                     <div 
-                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border-2 border-white shadow-sm shrink-0" 
+                      className="w-4 h-4 sm:w-5 sm:h-5 rounded-full border-2 border-white shadow-sm shrink-0" 
                       style={{ backgroundColor: color }}
                       aria-hidden="true"
                     />
-                    <span className="font-medium">{cat.name}</span>
+                    <span className="font-medium flex-1 min-w-0">{cat.name}</span>
+                    <span className="text-gray-500 font-normal shrink-0">({categoryResourceCount})</span>
                   </div>
                 );
               })}

@@ -257,13 +257,20 @@ export class DatabaseStorage implements IStorage {
           score += 10;
         }
 
+        // Category context bonus: if searching within a category, boost resources in that category
+        // Note: When options.categoryId is set, resources are already filtered by category at query time,
+        // so all resources in results are in the category. We give them all a boost.
+        if (options?.categoryId) {
+          score += 200; // Significant boost for category matches (all results are already in this category)
+        }
+
         return { resource, score };
       })
       .filter(item => {
-        // Only filter out crisis resources (score -1000) and results with no matches
-        // Keep all other results, even with low scores, to ensure partial matches show up
-        // Changed from `item.score > 0` to `item.score > -500` to be less aggressive
-        return item.score > -500;
+        // Only return results with positive relevance scores
+        // Filter out crisis resources (score -1000) and results with no matches (score -1000)
+        // This ensures only relevant results are returned
+        return item.score > 0;
       })
       .sort((a, b) => {
         // Sort by score (highest first)

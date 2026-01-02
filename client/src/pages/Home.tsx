@@ -36,7 +36,7 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 font-body">
       <SEOHead
         title="Help Kelowna - Free, Low-Cost & Public Resources | Food, Shelter, Health, Legal & Crisis Support in Kelowna & West Kelowna"
-        description="Find free, low-cost, and public resources in Kelowna. 250+ community services and resources including food support, emergency shelters, mental health services, legal aid, crisis hotlines, and more. Serving Kelowna and West Kelowna, BC. Always call ahead to confirm availability and details."
+        description="Find free, low-cost, and public resources in Kelowna. 320+ community resources including food support, emergency shelters, mental health services, legal aid, crisis hotlines, and more. Serving Kelowna and West Kelowna, BC. Always call ahead to confirm availability and details."
         keywords="help kelowna, free help kelowna, low cost resources kelowna, food bank kelowna, shelter kelowna, crisis help kelowna, mental health kelowna, legal aid kelowna, emergency help kelowna, west kelowna resources, community services kelowna, public resources kelowna"
       />
       <StructuredData type="WebSite" />
@@ -58,7 +58,7 @@ export default function Home() {
               Free, low-cost, and public resources for Kelowna and West Kelowna
             </p>
             <p className="text-sm sm:text-base text-gray-600 mb-8 sm:mb-10 max-w-xl mx-auto leading-relaxed">
-              250+ community services including food, shelter, health, legal, and crisis support
+              320+ community resources including food, shelter, health, legal, and crisis support
             </p>
 
             {/* Primary CTA: Search - Mobile-optimized spacing */}

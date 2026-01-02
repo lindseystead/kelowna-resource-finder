@@ -27,15 +27,17 @@ export default function CategoryDetail() {
 
   const { data: category, isLoading: isLoadingCategory } = useCategory(slug);
   
+  // Use backend search when searchTerm is provided, otherwise just filter by category
   const { data: resources, isLoading: isLoadingResources } = useResources(
-    category ? { categoryId: category.id } : undefined
+    category ? { 
+      categoryId: category.id,
+      search: searchTerm.trim() || undefined // Pass search to backend for proper relevance ranking
+    } : undefined
   );
 
   const filteredResources = resources?.filter(r => {
-    // Text search filter
-    const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      r.description.toLowerCase().includes(searchTerm.toLowerCase());
-    if (!matchesSearch) return false;
+    // If searchTerm is provided, backend already filtered by relevance, so we just apply other filters
+    // If no searchTerm, all category resources are shown
     
     // Applied filters
     if (filters.verified && !r.verified) return false;

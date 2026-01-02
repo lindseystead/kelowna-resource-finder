@@ -129,10 +129,7 @@ export function Footer() {
         <div className="py-4 sm:py-5 border-t border-gray-100">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
             <p className="text-xs text-gray-500 text-center sm:text-left">
-              © {new Date().getFullYear()}{" "}
-              {typeof window !== "undefined" 
-                ? window.location.hostname 
-                : (import.meta.env.VITE_BASE_URL?.replace(/^https?:\/\//, "") || "helpkelowna.com")}
+              © 2025-{new Date().getFullYear()} Help Kelowna Community Support Directory
             </p>
             <p className="text-xs text-gray-500 text-center sm:text-right">
               Powered by{" "}
