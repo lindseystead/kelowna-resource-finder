@@ -37,10 +37,12 @@ export const sessionMiddleware = session({
   resave: false, // Don't save session if unmodified
   saveUninitialized: false, // Don't create session until something stored
   cookie: {
-    secure: env.NODE_ENV === "production", // HTTPS only in production
+    secure: env.NODE_ENV === "production", // HTTPS only in production (required for sameSite: "none")
     httpOnly: true, // Prevent XSS attacks
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    sameSite: "strict", // CSRF protection
+    // In production with cross-origin (Vercel frontend + Railway backend),
+    // we need sameSite: "none" for cookies to work across domains
+    sameSite: env.NODE_ENV === "production" ? "none" : "strict",
     path: "/",
   },
   rolling: true, // Reset expiration on activity

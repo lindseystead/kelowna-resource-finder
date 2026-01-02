@@ -44,10 +44,13 @@ export function csrfToken(
   }
 
   // Set cookie - not httpOnly so JS can read it for AJAX requests
+  // In production with cross-origin requests (Vercel frontend + Railway backend),
+  // we need sameSite: "none" with secure: true for cookies to work
+  const isProduction = process.env.NODE_ENV === "production";
   res.cookie(CSRF_COOKIE_NAME, req.session.csrfToken, {
     httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: isProduction, // Required for sameSite: "none"
+    sameSite: isProduction ? "none" : "strict", // "none" allows cross-origin, "strict" for same-origin
     path: "/",
   });
 
