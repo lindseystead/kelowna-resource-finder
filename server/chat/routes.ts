@@ -113,12 +113,25 @@ export function registerChatRoutes(app: Express): void {
    * Used by frontend to get the token when cookies aren't accessible cross-origin.
    */
   app.get("/api/csrf-token", asyncHandler(async (req: Request, res: Response) => {
-    // The csrfToken middleware should have already set the token
-    // Return it in the response body so frontend can read it
-    const token = req.session?.csrfToken || res.locals.csrfToken;
-    if (!token) {
-      return res.status(500).json({ error: "CSRF token not available" });
+    // Ensure session exists - create it if needed
+    if (!req.session) {
+      return res.status(500).json({ error: "Session not initialized" });
     }
+    
+    // The csrfToken middleware should have already set the token
+    // But if it hasn't, we'll get it from res.locals or generate it
+    let token = req.session.csrfToken || res.locals.csrfToken;
+    
+    // If token still doesn't exist, something went wrong with middleware
+    // This shouldn't happen, but handle it gracefully
+    if (!token) {
+      logger.warn("CSRF token not found in session or locals on /api/csrf-token");
+      return res.status(500).json({ 
+        error: "CSRF token not available",
+        message: "Please refresh the page and try again"
+      });
+    }
+    
     res.json({ csrfToken: token });
   }));
 

@@ -30,7 +30,11 @@ export const sessionMiddleware = session({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pool: pool as any,
     tableName: "user_sessions", // Custom table name
-    createTableIfMissing: true, // Auto-create session table
+    // CRITICAL: Set to false in production to prevent filesystem SQL file reads
+    // The session table must be created via migration (006_add_session_table.sql)
+    // before deploying to production. This prevents ENOENT errors when connect-pg-simple
+    // tries to read table.sql from the filesystem.
+    createTableIfMissing: env.NODE_ENV === "development", // Only auto-create in dev
   }),
   secret: getSessionSecret(),
   name: "kelowna_aid.sid", // Custom session name (security through obscurity)

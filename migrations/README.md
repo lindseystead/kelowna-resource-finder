@@ -17,6 +17,8 @@ These SQL files add:
 **New setup:**
 ```bash
 npm run db:push
+# Required: Create session table (needed for authentication)
+psql $DATABASE_URL -f migrations/006_add_session_table.sql
 # Optional: add indexes and constraints
 psql $DATABASE_URL -f migrations/001_add_indexes.sql
 psql $DATABASE_URL -f migrations/002_add_constraints.sql

@@ -94,8 +94,8 @@ export function validateCsrf(
     return next();
   }
 
-  // Skip CSRF validation for health/readiness checks
-  if (req.path === "/health" || req.path === "/ready") {
+  // Skip CSRF validation for health/readiness checks and CSRF token endpoint
+  if (req.path === "/health" || req.path === "/ready" || req.path === "/api/csrf-token") {
     return next();
   }
 
