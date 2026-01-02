@@ -54,6 +54,16 @@ export default function ResourceDetail() {
   const parentCategory = categories?.find(c => c.id === resource?.categoryId);
   const currentTime = useCurrentTime();
   const openStatus = resource ? isOpenNow(resource.hours) : null;
+  
+  // Fetch related resources in the same category
+  const { data: relatedResources } = useResources(
+    parentCategory ? { categoryId: parentCategory.id } : undefined
+  );
+  
+  // Fetch related resources in the same category
+  const { data: relatedResources } = useResources(
+    parentCategory ? { categoryId: parentCategory.id } : undefined
+  );
 
   const getDirectionsUrl = () => {
     if (!resource?.latitude || !resource?.longitude) return null;
@@ -642,35 +652,17 @@ export default function ResourceDetail() {
               </div>
 
               {/* Related Resources */}
-              {resource && categories && (() => {
-                const parentCategory = categories.find(c => c.id === resource.categoryId);
-                if (!parentCategory) return null;
-                
-                // Fetch related resources in the same category
-                const { data: relatedResources } = useQuery({
-                  queryKey: [api.resources.list.path, parentCategory.id],
-                  queryFn: async () => {
-                    const url = new URL(apiUrl(api.resources.list.path), window.location.origin);
-                    url.searchParams.append("categoryId", String(parentCategory.id));
-                    const res = await fetch(url.toString());
-                    if (!res.ok) return [];
-                    const all = await api.resources.list.responses[200].parse(await res.json());
-                    // Exclude current resource and limit to 4
-                    return all.filter(r => r.id !== resource.id).slice(0, 4);
-                  },
-                  enabled: !!parentCategory,
-                });
-                
-                if (!relatedResources || relatedResources.length === 0) return null;
-                
-                return (
-                  <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md border border-gray-100">
-                    <h3 className="font-display font-bold text-base sm:text-lg text-gray-900 mb-3 sm:mb-4">Related Resources</h3>
-                    <p className="text-xs sm:text-sm text-gray-600 mb-4">
-                      Other resources in {parentCategory.name}:
-                    </p>
-                    <div className="space-y-2">
-                      {relatedResources.map(related => (
+              {relatedResources && relatedResources.length > 0 && parentCategory && (
+                <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md border border-gray-100">
+                  <h3 className="font-display font-bold text-base sm:text-lg text-gray-900 mb-3 sm:mb-4">Related Resources</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 mb-4">
+                    Other resources in {parentCategory.name}:
+                  </p>
+                  <div className="space-y-2">
+                    {relatedResources
+                      .filter(r => r.id !== resource?.id)
+                      .slice(0, 4)
+                      .map(related => (
                         <Link
                           key={related.id}
                           href={`/resource/${related.id}`}
@@ -679,15 +671,14 @@ export default function ResourceDetail() {
                           <div className="font-medium text-sm sm:text-base text-gray-900">{related.name}</div>
                           {related.description && (
                             <div className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">
-                              {related.description}
+                              {related.description.substring(0, 100)}...
                             </div>
                           )}
                         </Link>
                       ))}
-                    </div>
                   </div>
-                );
-              })()}
+                </div>
+              )}
 
               {/* Report/Edit Resource */}
               <div className="bg-white rounded-xl p-4 sm:p-6 shadow-md border border-gray-100">
