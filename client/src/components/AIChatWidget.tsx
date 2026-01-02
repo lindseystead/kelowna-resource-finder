@@ -125,43 +125,57 @@ export function AIChatWidget() {
     try {
       // First, ensure we have a CSRF token by making a GET request if needed
       let csrfToken = getCsrfToken();
-      if (!csrfToken) {
-        // Try to fetch CSRF token by making a GET request
-        try {
-          await fetch(apiUrl("/api/conversations"), {
-            method: "GET",
-            credentials: "include",
-            headers: {
-              "Accept": "application/json",
-            },
-          });
-          // Wait a moment for cookie to be set
-          await new Promise(resolve => setTimeout(resolve, 100));
-          csrfToken = getCsrfToken();
-        } catch (error) {
-          // Continue anyway - might still work
+      
+      // Always make a GET request first to ensure session and CSRF token are initialized
+      // This is critical for cross-origin requests (Vercel frontend + Railway backend)
+      try {
+        const initRes = await fetch(apiUrl("/api/conversations"), {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Accept": "application/json",
+          },
+        });
+        
+        if (!initRes.ok) {
+          console.error("Failed to initialize session:", initRes.status, initRes.statusText);
+        }
+        
+        // Wait a moment for cookie to be set and accessible
+        await new Promise(resolve => setTimeout(resolve, 200));
+        csrfToken = getCsrfToken();
+        
+        // Log for debugging (even in production for now to diagnose issues)
+        if (!csrfToken) {
+          console.warn("CSRF token not found after initialization. Cookies:", document.cookie);
+        } else {
           if (import.meta.env.DEV) {
-            console.warn("Failed to fetch CSRF token:", error);
+            console.log("CSRF token found:", csrfToken.substring(0, 8) + "...");
           }
         }
+      } catch (error) {
+        console.error("Failed to initialize CSRF token:", error);
+        // Continue anyway - might still work if token was already set
       }
       
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (csrfToken) {
         headers["x-csrf-token"] = csrfToken;
       } else {
-        // Log warning if we still don't have a token
-        if (import.meta.env.DEV) {
-          console.warn("No CSRF token available - request may fail");
-        }
+        // Log warning - this will likely cause a 403
+        console.warn("No CSRF token available - request will likely fail with 403");
+        console.warn("Available cookies:", document.cookie);
+        console.warn("API URL:", apiUrl("/api/conversations"));
       }
       
       const url = apiUrl("/api/conversations");
       
-      // Debug logging in development
-      if (import.meta.env.DEV) {
-        console.log("Creating conversation at:", url, "with CSRF token:", csrfToken ? "yes" : "no");
-      }
+      // Debug logging
+      console.log("Creating conversation:", {
+        url,
+        hasToken: !!csrfToken,
+        hasApiUrl: !!import.meta.env.VITE_API_URL,
+      });
       
       const res = await fetch(url, {
         method: "POST",
@@ -174,33 +188,21 @@ export function AIChatWidget() {
         const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}: ${res.statusText}` }));
         const errorMsg = errorData.error || `Failed to create conversation: ${res.statusText}`;
         
-        // If CSRF error, provide helpful message
-        if (res.status === 403 && (errorMsg.includes("CSRF") || errorMsg.includes("csrf"))) {
-          const helpfulMsg = "CSRF token issue. Please refresh the page and try again. If the problem persists, check that cookies are enabled and CORS is configured correctly.";
-          if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-            console.error("CSRF error:", {
-              status: res.status,
-              url,
-              hasToken: !!csrfToken,
-              hint: !import.meta.env.VITE_API_URL 
-                ? "VITE_API_URL not set - check Vercel environment variables"
-                : "Check Railway backend CORS and cookie settings (sameSite: 'none', secure: true)"
-            });
-          }
-          throw new Error(helpfulMsg);
-        }
+        // Enhanced error logging
+        console.error("Chat API error:", {
+          status: res.status,
+          statusText: res.statusText,
+          url,
+          error: errorMsg,
+          hasToken: !!csrfToken,
+          hasApiUrl: !!import.meta.env.VITE_API_URL,
+          cookies: document.cookie,
+        });
         
-        // Log helpful error message
-        if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
-          console.error("Chat API error:", {
-            status: res.status,
-            statusText: res.statusText,
-            url,
-            error: errorMsg,
-            hint: !import.meta.env.VITE_API_URL 
-              ? "VITE_API_URL not set - check Vercel environment variables"
-              : "Check Railway backend is running and CORS is configured"
-          });
+        // If CSRF error, provide helpful message
+        if (res.status === 403 && (errorMsg.includes("CSRF") || errorMsg.includes("csrf") || errorMsg.includes("token"))) {
+          const helpfulMsg = "CSRF token issue. Please refresh the page and try again. If the problem persists, check that cookies are enabled and CORS is configured correctly.";
+          throw new Error(helpfulMsg);
         }
         
         throw new Error(errorMsg);
@@ -215,9 +217,7 @@ export function AIChatWidget() {
       return data.id;
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
-      if (import.meta.env.DEV) {
-        console.warn("Failed to start conversation:", errMsg);
-      }
+      console.error("Failed to start conversation:", errMsg);
       throw error;
     }
   };
