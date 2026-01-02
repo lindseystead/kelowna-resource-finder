@@ -66,8 +66,27 @@ export function AIChatWidget() {
     }
   }, [input]);
   
+  // Initialize CSRF token by making a GET request when chat opens
   useEffect(() => {
     if (isOpen && !hasShownGreeting && messages.length === 0 && conversationId === null) {
+      // First, fetch CSRF token by making a GET request to initialize session
+      const initCsrfToken = async () => {
+        try {
+          // Make a GET request to initialize session and get CSRF token cookie
+          await fetch(apiUrl("/api/conversations"), {
+            method: "GET",
+            credentials: "include",
+          });
+        } catch (error) {
+          // Ignore errors - we'll try to continue anyway
+          if (import.meta.env.DEV) {
+            console.warn("Failed to initialize CSRF token:", error);
+          }
+        }
+      };
+      
+      initCsrfToken();
+      
       const greetingMessage: Message = {
         id: Date.now(),
         role: "assistant",
@@ -285,12 +304,25 @@ export function AIChatWidget() {
         return;
       }
       
-      // Show user-friendly error message
-      const errorDisplayMessage = errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')
-        ? "Unable to connect to the chat service. Please check your internet connection and try again."
-        : errorMessage.includes('CSRF') || errorMessage.includes('csrf')
-        ? "Security token expired. Please refresh the page and try again."
-        : "Sorry, something went wrong. Please try again.";
+      // Show user-friendly error message with more detail
+      let errorDisplayMessage = "Sorry, something went wrong. Please try again.";
+      
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        errorDisplayMessage = "Unable to connect to the chat service. Please check your internet connection and try again.";
+      } else if (errorMessage.includes('CSRF') || errorMessage.includes('csrf') || errorMessage.includes('403')) {
+        errorDisplayMessage = "Security token issue. Please refresh the page and try again.";
+      } else if (errorMessage.includes('404')) {
+        errorDisplayMessage = "Chat service not found. Please check that the backend is running.";
+      } else if (errorMessage.includes('500')) {
+        errorDisplayMessage = "Server error. Please try again in a moment.";
+      }
+      
+      // Log error details for debugging (even in production for now)
+      console.error("Chat error:", {
+        message: errorMessage,
+        url: apiUrl("/api/conversations"),
+        hasApiUrl: !!import.meta.env.VITE_API_URL,
+      });
       
       setMessages((prev) => [
         ...prev,
