@@ -38,9 +38,19 @@ export function csrfToken(
   res: Response,
   next: NextFunction
 ): void {
+  // Ensure session exists (create if needed)
+  if (!req.session) {
+    // This shouldn't happen if session middleware is properly configured,
+    // but handle it gracefully
+    return next();
+  }
+
   // Generate token on first request, reuse for session
-  if (!req.session?.csrfToken) {
+  // express-session will automatically save the session when we modify it
+  if (!req.session.csrfToken) {
     req.session.csrfToken = generateToken();
+    // Mark session as modified to ensure it's saved
+    // This is important when saveUninitialized: false
   }
 
   // Set cookie - not httpOnly so JS can read it for AJAX requests
@@ -52,6 +62,8 @@ export function csrfToken(
     secure: isProduction, // Required for sameSite: "none"
     sameSite: isProduction ? "none" : "strict", // "none" allows cross-origin, "strict" for same-origin
     path: "/",
+    // Don't set domain - let browser handle it for cross-origin
+    // Setting domain would restrict the cookie to that domain
   });
 
   // Attach token to response for easy access

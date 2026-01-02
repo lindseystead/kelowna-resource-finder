@@ -123,17 +123,44 @@ export function AIChatWidget() {
 
   const startConversation = async () => {
     try {
-      const csrfToken = getCsrfToken();
+      // First, ensure we have a CSRF token by making a GET request if needed
+      let csrfToken = getCsrfToken();
+      if (!csrfToken) {
+        // Try to fetch CSRF token by making a GET request
+        try {
+          await fetch(apiUrl("/api/conversations"), {
+            method: "GET",
+            credentials: "include",
+            headers: {
+              "Accept": "application/json",
+            },
+          });
+          // Wait a moment for cookie to be set
+          await new Promise(resolve => setTimeout(resolve, 100));
+          csrfToken = getCsrfToken();
+        } catch (error) {
+          // Continue anyway - might still work
+          if (import.meta.env.DEV) {
+            console.warn("Failed to fetch CSRF token:", error);
+          }
+        }
+      }
+      
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (csrfToken) {
         headers["x-csrf-token"] = csrfToken;
+      } else {
+        // Log warning if we still don't have a token
+        if (import.meta.env.DEV) {
+          console.warn("No CSRF token available - request may fail");
+        }
       }
       
       const url = apiUrl("/api/conversations");
       
       // Debug logging in development
       if (import.meta.env.DEV) {
-        console.log("Creating conversation at:", url);
+        console.log("Creating conversation at:", url, "with CSRF token:", csrfToken ? "yes" : "no");
       }
       
       const res = await fetch(url, {
@@ -146,6 +173,22 @@ export function AIChatWidget() {
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}: ${res.statusText}` }));
         const errorMsg = errorData.error || `Failed to create conversation: ${res.statusText}`;
+        
+        // If CSRF error, provide helpful message
+        if (res.status === 403 && (errorMsg.includes("CSRF") || errorMsg.includes("csrf"))) {
+          const helpfulMsg = "CSRF token issue. Please refresh the page and try again. If the problem persists, check that cookies are enabled and CORS is configured correctly.";
+          if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
+            console.error("CSRF error:", {
+              status: res.status,
+              url,
+              hasToken: !!csrfToken,
+              hint: !import.meta.env.VITE_API_URL 
+                ? "VITE_API_URL not set - check Vercel environment variables"
+                : "Check Railway backend CORS and cookie settings (sameSite: 'none', secure: true)"
+            });
+          }
+          throw new Error(helpfulMsg);
+        }
         
         // Log helpful error message
         if (import.meta.env.DEV || !import.meta.env.VITE_API_URL) {
