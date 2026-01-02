@@ -73,12 +73,25 @@ export function AIChatWidget() {
       const initCsrfToken = async () => {
         try {
           // Make a GET request to initialize session and get CSRF token cookie
-          await fetch(apiUrl("/api/conversations"), {
+          const res = await fetch(apiUrl("/api/conversations"), {
             method: "GET",
             credentials: "include",
+            headers: {
+              "Accept": "application/json",
+            },
           });
+          
+          // Check if CSRF token cookie was set
+          if (res.ok) {
+            const token = getCsrfToken();
+            if (import.meta.env.DEV && token) {
+              console.log("CSRF token initialized:", token.substring(0, 8) + "...");
+            }
+          } else if (import.meta.env.DEV) {
+            console.warn("Failed to initialize CSRF token:", res.status, res.statusText);
+          }
         } catch (error) {
-          // Ignore errors - we'll try to continue anyway
+          // Log error but continue - we'll try to get token on first POST
           if (import.meta.env.DEV) {
             console.warn("Failed to initialize CSRF token:", error);
           }
@@ -175,7 +188,25 @@ export function AIChatWidget() {
 
     let convId = conversationId;
     if (!convId) {
-      convId = await startConversation();
+      try {
+        convId = await startConversation();
+        if (!convId) {
+          throw new Error("Failed to create conversation");
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : "Failed to start conversation";
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            role: "assistant",
+            content: `I'm having trouble connecting right now. Please try refreshing the page. Error: ${errorMsg}`,
+          },
+        ]);
+        setIsLoading(false);
+        return;
+      }
+      
       if (!isMountedRef.current) {
         setIsLoading(false);
         return;
@@ -190,10 +221,28 @@ export function AIChatWidget() {
     setMessages((prev) => [...prev, newUserMessage]);
 
     try {
-      const csrfToken = getCsrfToken();
+      // Ensure CSRF token is available - fetch it if missing
+      let csrfToken = getCsrfToken();
+      if (!csrfToken) {
+        // Try to initialize CSRF token by making a GET request
+        try {
+          await fetch(apiUrl("/api/conversations"), {
+            method: "GET",
+            credentials: "include",
+          });
+          csrfToken = getCsrfToken();
+        } catch (error) {
+          // Continue anyway - server might still accept the request
+        }
+      }
+      
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (csrfToken) {
         headers["x-csrf-token"] = csrfToken;
+      }
+      
+      if (!convId) {
+        throw new Error("Conversation ID is missing");
       }
       
       const response = await fetch(apiUrl(`/api/conversations/${convId}/messages`), {
