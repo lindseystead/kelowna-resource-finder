@@ -98,8 +98,13 @@ export default function MapView() {
   const { data: resources = [], isLoading: resourcesLoading, error: resourcesError } = useQuery<Resource[]>({
     queryKey: [api.resources.list.path],
     queryFn: async () => {
-      const res = await fetch(apiUrl(api.resources.list.path));
-      if (!res.ok) throw new Error("Failed to fetch resources");
+      const res = await fetch(apiUrl(api.resources.list.path), {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to fetch resources: ${res.status} ${res.statusText}`);
+      }
       return api.resources.list.responses[200].parse(await res.json());
     },
   });
@@ -108,8 +113,13 @@ export default function MapView() {
   const { data: categories = [], error: categoriesError } = useQuery<Category[]>({
     queryKey: [api.categories.list.path],
     queryFn: async () => {
-      const res = await fetch(apiUrl(api.categories.list.path));
-      if (!res.ok) throw new Error("Failed to fetch categories");
+      const res = await fetch(apiUrl(api.categories.list.path), {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to fetch categories: ${res.status} ${res.statusText}`);
+      }
       return api.categories.list.responses[200].parse(await res.json());
     },
   });
@@ -348,9 +358,14 @@ export default function MapView() {
             <div className="bg-red-50 border border-red-200 rounded-xl p-6 sm:p-8 text-center max-w-md">
               <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 mx-auto mb-4" aria-hidden="true" />
               <h3 className="text-lg sm:text-xl font-semibold text-red-900 mb-2">Failed to load map data</h3>
-              <p className="text-sm sm:text-base text-red-700 mb-6">
-                We couldn't load the resources or categories. Please check your connection and try again.
+              <p className="text-sm sm:text-base text-red-700 mb-4">
+                {resourcesError?.message || categoriesError?.message || "Unable to connect to the server"}
               </p>
+              {import.meta.env.DEV && (
+                <p className="text-xs text-red-600 mb-4">
+                  API URL: {apiUrl(api.resources.list.path)}
+                </p>
+              )}
               <button
                 onClick={() => window.location.reload()}
                 className="inline-flex items-center justify-center px-6 py-3 min-h-[44px] bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 active:bg-red-800 transition-colors touch-manipulation"
