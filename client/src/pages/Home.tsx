@@ -43,8 +43,9 @@ export default function Home() {
       <StructuredData type="Organization" />
       <Navigation />
 
+      <main id="main-content" role="main">
       {/* Hero Section - Clean, modern design with better contrast */}
-      <section className="bg-gradient-to-b from-white via-gray-50/30 to-white border-b border-gray-200/60">
+      <section className="bg-gradient-to-b from-white via-gray-50/30 to-white border-b border-gray-200/60" aria-label="Hero section">
         {/* Mobile-first: Start with mobile padding, scale up */}
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 md:py-18 lg:py-20">
           <div className="text-center">
@@ -157,6 +158,7 @@ export default function Home() {
           )}
         </div>
       </section>
+      </main>
       
       <Footer />
 

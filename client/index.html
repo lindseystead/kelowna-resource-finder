@@ -36,8 +36,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Help Kelowna" />
     <!-- Google Fonts - Only load fonts actually used in the application -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <!-- Preconnect for faster font loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Load fonts with display=swap for better performance and fallback -->
+    <!-- Using async loading to prevent blocking render -->
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>

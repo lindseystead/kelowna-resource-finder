@@ -41,8 +41,16 @@ export function Navigation() {
 
   return (
     <>
+      {/* Skip to main content link for accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only"
+        aria-label="Skip to main content"
+      >
+        Skip to main content
+      </a>
       <WeatherWidget />
-      <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100 shadow-sm">
+      <nav className="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-gray-100 shadow-sm" role="navigation" aria-label="Main navigation">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-14 sm:h-16 items-center">
           <Link href="/" className="flex items-center gap-1.5 sm:gap-2 group min-h-[44px] touch-manipulation">
