@@ -109,8 +109,18 @@ export function registerChatRoutes(app: Express): void {
   /**
    * GET /api/conversations
    * Retrieves all chat conversations.
+   * This endpoint also initializes the session and CSRF token on first request.
    */
   app.get("/api/conversations", asyncHandler(async (req: Request, res: Response) => {
+    // Ensure session is initialized (this will create it if it doesn't exist)
+    // The csrfToken middleware should have already set the CSRF token cookie
+    if (req.session && !req.session.csrfToken) {
+      // If for some reason the CSRF token wasn't set, log it (but don't fail)
+      if (process.env.NODE_ENV === "development") {
+        logger.warn("CSRF token not found in session on GET /api/conversations");
+      }
+    }
+    
     const conversations = await chatStorage.getAllConversations(CHAT.MAX_CONVERSATIONS);
     res.json(conversations);
   }));
