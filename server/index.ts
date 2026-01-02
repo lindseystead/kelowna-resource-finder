@@ -95,6 +95,17 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
+    // Register health check FIRST (before any middleware that might block it)
+    // Railway needs this to verify the container is healthy
+    app.get('/health', async (req, res) => {
+      try {
+        // Quick check - just verify server is responding
+        res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+      } catch (error) {
+        res.status(503).json({ status: 'unhealthy', error: 'Server error' });
+      }
+    });
+
     // Register authentication routes first
     registerAuthRoutes(app);
 
