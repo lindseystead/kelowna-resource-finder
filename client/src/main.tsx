@@ -12,11 +12,13 @@
 // Must be set up BEFORE any other code runs to catch early errors
 (function suppressThirdPartyErrors() {
   const isThirdPartyError = (source: string): boolean => {
+    const lower = source.toLowerCase();
     return (
-      source.includes('net.js') ||
-      source.includes('effulgent-jelly') ||
-      source.includes('netlify.app') ||
-      (source.includes('CORS policy') && source.includes('netlify'))
+      lower.includes('net.js') ||
+      lower.includes('effulgent-jelly') ||
+      lower.includes('netlify.app') ||
+      (lower.includes('cors policy') && lower.includes('netlify')) ||
+      lower.includes('config.json') && lower.includes('netlify')
     );
   };
 
