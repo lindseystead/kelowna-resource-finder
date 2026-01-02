@@ -57,4 +57,7 @@ export const pool = new Pool({
 });
 
 // Drizzle instance with schema - gives us type-safe queries
+// IMPORTANT: Never run migrations at runtime. Migrations must be run manually via:
+//   npm run db:push (for development) or drizzle-kit migrate (for production)
+// Running migrations at runtime causes infinite restart loops in production.
 export const db = drizzle(pool, { schema });

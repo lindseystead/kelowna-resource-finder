@@ -8,6 +8,10 @@
  */
 
 import { defineConfig } from "drizzle-kit";
+import { config } from "dotenv";
+
+// Load .env file (wrapper script ensures this runs, but keep for direct drizzle-kit calls)
+config();
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL must be set. Ensure the database is provisioned.");

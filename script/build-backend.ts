@@ -57,7 +57,9 @@ async function buildBackend() {
       "process.env.NODE_ENV": '"production"',
     },
     minify: true,
-    external: [...externals, "pg", "@mapbox/node-pre-gyp"],
+    // CRITICAL: drizzle-kit must NEVER be bundled - it contains migration logic
+    // that will cause infinite restart loops if executed at runtime in production
+    external: [...externals, "pg", "@mapbox/node-pre-gyp", "drizzle-kit"],
     logLevel: "info",
     resolveExtensions: [".ts", ".tsx", ".js", ".jsx"],
     plugins: [
@@ -79,6 +81,28 @@ async function buildBackend() {
             
             // Fallback to base path (esbuild will try extensions)
             return { path: basePath };
+          });
+          
+          // CRITICAL: Block any attempts to import drizzle.config.ts or migration files
+          // These files contain migration logic that must NEVER run at runtime
+          // drizzle.config.ts imports drizzle-kit which has side effects that can trigger migrations
+          build.onResolve({ filter: /.*drizzle\.config.*/ }, (args) => {
+            console.error(`❌ BLOCKED: Attempt to import drizzle.config.ts from ${args.importer}`);
+            throw new Error(
+              "drizzle.config.ts must NEVER be imported in production code. " +
+              "It contains drizzle-kit imports that trigger migrations at runtime."
+            );
+          });
+          
+          build.onResolve({ filter: /.*migrations.*/ }, (args) => {
+            // Only block if it's trying to import migration files, not the migrations directory reference
+            if (args.path.includes(".sql") || args.path.includes("migrate")) {
+              console.error(`❌ BLOCKED: Attempt to import migration file from ${args.importer}`);
+              throw new Error(
+                "Migration files must NEVER be imported in production code. " +
+                "They cause infinite restart loops when executed at runtime."
+              );
+            }
           });
         },
       },

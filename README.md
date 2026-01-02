@@ -179,32 +179,41 @@ This is a full-stack application built from scratch with the following component
 
 ## 🏃 Getting Started
 
-### Installation
+### Quick Setup
 
-```bash
-# Clone the repository
-git clone https://github.com/lindseystead/kelowna-resource-finder.git
-cd kelowna-resource-finder
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-# Install dependencies
-npm install
+2. **Set up database:**
+   - **Easiest**: Use free [Supabase](https://supabase.com) or [Neon](https://neon.tech) (see [SETUP.md](SETUP.md) for details)
+   - **Local**: Install PostgreSQL and create a database
+   - Copy connection string (format: `postgresql://user:password@host:port/database`)
 
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your configuration
+3. **Create `.env` file:**
+   ```bash
+   cp .env.example .env
+   ```
+   Add your database URL:
+   ```env
+   DATABASE_URL=postgresql://...
+   SESSION_SECRET=your-random-secret-here
+   ```
 
-# Push database schema
-npm run db:push
-```
+4. **Set up database schema:**
+   ```bash
+   npm run db:push
+   ```
 
-### Development
-
-```bash
-# Start development server
-npm run dev
-```
+5. **Run the app:**
+   ```bash
+   npm run dev
+   ```
 
 The app will be available at `http://localhost:5000`. Database seeds automatically on first run.
+
+**For detailed setup instructions, see [SETUP.md](SETUP.md)**
 
 ## 📁 Project Structure
 
