@@ -67,6 +67,13 @@ export const corsMiddleware = cors({
       return callback(null, true);
     }
 
+    // Allow helpkelowna.com domain (with or without www)
+    // This covers both www.helpkelowna.com and helpkelowna.com
+    if (origin.includes("helpkelowna.com")) {
+      logger.info("CORS: Allowing helpkelowna.com domain", { origin });
+      return callback(null, true);
+    }
+
     // In production, check against allowed origins
     const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()) || [];
     
