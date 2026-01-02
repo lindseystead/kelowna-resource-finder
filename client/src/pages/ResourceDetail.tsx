@@ -59,11 +59,6 @@ export default function ResourceDetail() {
   const { data: relatedResources } = useResources(
     parentCategory ? { categoryId: parentCategory.id } : undefined
   );
-  
-  // Fetch related resources in the same category
-  const { data: relatedResources } = useResources(
-    parentCategory ? { categoryId: parentCategory.id } : undefined
-  );
 
   const getDirectionsUrl = () => {
     if (!resource?.latitude || !resource?.longitude) return null;
