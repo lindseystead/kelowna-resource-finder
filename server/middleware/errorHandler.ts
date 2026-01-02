@@ -49,7 +49,21 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  logger.error("Unhandled error in request handler", err);
+  // Log full error details including stack trace for debugging
+  logger.error("Unhandled error in request handler", {
+    error: err,
+    message: err.message,
+    stack: err.stack,
+    name: err.name,
+  });
+
+  // If headers already sent, we can't send a response - just log and end
+  if (res.headersSent) {
+    logger.warn("Error occurred but headers already sent, cannot send error response", {
+      error: err.message,
+    });
+    return;
+  }
 
   // Zod validation errors - user sent bad data
   if (err instanceof ZodError) {
